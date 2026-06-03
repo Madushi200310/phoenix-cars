@@ -12,3 +12,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+
+export const CLOUDINARY_CLOUD_NAME = "dmrmolj9q";
+export const CLOUDINARY_UPLOAD_PRESET = "ml_default";

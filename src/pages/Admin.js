@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { collection, addDoc, getDocs, deleteDoc, doc, onSnapshot, query, orderBy } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } from "../firebase";
 
 function Admin() {
   const [vehicles, setVehicles] = useState([]);
-  const [form, setForm] = useState({ name: "", price: "", year: "", mileage: "", color: "", description: "", image: "" });
+  const [form, setForm] = useState({ name: "", price: "", year: "", mileage: "", color: "", description: "" });
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [messages, setMessages] = useState([]);
   const [reply, setReply] = useState("");
@@ -12,10 +15,6 @@ function Admin() {
   const [loggedIn, setLoggedIn] = useState(false);
 
   useEffect(() => {
-    const fetchVehicles = async () => {
-      const querySnapshot = await getDocs(collection(db, "vehicles"));
-      setVehicles(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    };
     fetchVehicles();
   }, []);
 
@@ -28,17 +27,49 @@ function Admin() {
     return () => unsubscribe();
   }, [selectedVehicle]);
 
+  const fetchVehicles = async () => {
+    const querySnapshot = await getDocs(collection(db, "vehicles"));
+    setVehicles(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+  };
+
   const handleLogin = () => {
     if (password === "phoenix123") setLoggedIn(true);
     else alert("Wrong password!");
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const uploadImageToCloudinary = async () => {
+    const formData = new FormData();
+    formData.append("file", imageFile);
+    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+      method: "POST",
+      body: formData,
+    });
+    const data = await response.json();
+    return data.secure_url;
+  };
+
   const handleAdd = async () => {
-    if (!form.name.trim()) return;
-    await addDoc(collection(db, "vehicles"), { ...form });
-    setForm({ name: "", price: "", year: "", mileage: "", color: "", description: "", image: "" });
-    const querySnapshot = await getDocs(collection(db, "vehicles"));
-    setVehicles(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    if (!form.name.trim()) return alert("Please enter vehicle name!");
+    if (!imageFile) return alert("Please select an image!");
+    setUploading(true);
+    try {
+      const imageUrl = await uploadImageToCloudinary();
+      await addDoc(collection(db, "vehicles"), { ...form, image: imageUrl });
+      setForm({ name: "", price: "", year: "", mileage: "", color: "", description: "" });
+      setImageFile(null);
+      setImagePreview(null);
+      fetchVehicles();
+    } catch (error) {
+      alert("Error adding vehicle. Please try again.");
+    }
+    setUploading(false);
   };
 
   const handleDelete = async (id) => {
@@ -72,20 +103,34 @@ function Admin() {
 
       <h2>Add New Vehicle</h2>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "20px" }}>
-        {["name", "price", "year", "mileage", "color", "image"].map((field) => (
+        {["name", "price", "year", "mileage", "color"].map((field) => (
           <input key={field} placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
             value={form[field]} onChange={(e) => setForm({ ...form, [field]: e.target.value })}
             style={{ padding: "8px", borderRadius: "8px", border: "1px solid #ccc", width: "180px" }} />
         ))}
         <textarea placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
           style={{ padding: "8px", borderRadius: "8px", border: "1px solid #ccc", width: "380px" }} />
-        <button onClick={handleAdd} style={{ padding: "10px 20px", background: "#e25822", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}>Add Vehicle</button>
+
+        <div style={{ width: "100%" }}>
+          <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}>Upload Car Image:</label>
+          <input type="file" accept="image/*" onChange={handleImageChange}
+            style={{ padding: "8px", borderRadius: "8px", border: "1px solid #ccc" }} />
+          {imagePreview && (
+            <img src={imagePreview} alt="Preview" style={{ marginTop: "10px", width: "200px", borderRadius: "8px" }} />
+          )}
+        </div>
+
+        <button onClick={handleAdd} disabled={uploading}
+          style={{ padding: "10px 20px", background: uploading ? "#aaa" : "#e25822", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}>
+          {uploading ? "Uploading..." : "Add Vehicle"}
+        </button>
       </div>
 
       <h2>Vehicle List</h2>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "15px", marginBottom: "30px" }}>
         {vehicles.map((v) => (
           <div key={v.id} style={{ border: "1px solid #ddd", borderRadius: "10px", padding: "15px", width: "220px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
+            {v.image && <img src={v.image} alt={v.name} style={{ width: "100%", borderRadius: "8px", marginBottom: "8px" }} />}
             <h3>{v.name}</h3>
             <p>💰 ${v.price}</p>
             <p>📅 {v.year}</p>
