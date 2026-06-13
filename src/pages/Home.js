@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
+import { signOut, onAuthStateChanged } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 
 function Home() {
   const [vehicles, setVehicles] = useState([]);
   const [search, setSearch] = useState("");
+  const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -18,7 +20,17 @@ function Home() {
       setVehicles(data);
     };
     fetchVehicles();
+
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
   }, []);
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    navigate("/login");
+  };
 
   const filtered = vehicles.filter((v) =>
     v.name.toLowerCase().includes(search.toLowerCase())
@@ -26,13 +38,39 @@ function Home() {
 
   return (
     <div style={{ padding: "20px", fontFamily: "Arial" }}>
-      <h1 style={{ color: "#e25822" }}>🔥 Phoenix Cars</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+        <h1 style={{ color: "#e25822" }}>🔥 Phoenix Cars</h1>
+        <div>
+          {user ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span>👋 {user.displayName || user.email}</span>
+              <button onClick={handleLogout}
+                style={{ padding: "8px 16px", background: "#e25822", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}>
+                Logout
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button onClick={() => navigate("/login")}
+                style={{ padding: "8px 16px", background: "#e25822", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}>
+                Login
+              </button>
+              <button onClick={() => navigate("/register")}
+                style={{ padding: "8px 16px", background: "#333", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}>
+                Register
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
       <input
         placeholder="Search vehicles..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         style={{ padding: "10px", width: "300px", marginBottom: "20px", borderRadius: "8px", border: "1px solid #ccc" }}
       />
+
       <div style={{ display: "flex", flexWrap: "wrap", gap: "20px" }}>
         {filtered.map((v) => (
           <div

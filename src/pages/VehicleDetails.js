@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { doc, getDoc, collection, addDoc, onSnapshot, query, orderBy } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import { useParams, useNavigate } from "react-router-dom";
 
 function VehicleDetails() {
@@ -9,7 +10,7 @@ function VehicleDetails() {
   const [vehicle, setVehicle] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  const [name, setName] = useState("");
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     const fetchVehicle = async () => {
@@ -23,14 +24,23 @@ function VehicleDetails() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setMessages(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     });
-    return () => unsubscribe();
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeAuth();
+    };
   }, [id]);
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !name.trim()) return;
+    if (!newMessage.trim()) return;
+    if (!user) return navigate("/login");
     await addDoc(collection(db, "vehicles", id, "messages"), {
       text: newMessage,
-      sender: name,
+      sender: user.displayName || user.email,
       role: "user",
       time: new Date(),
     });
@@ -51,6 +61,13 @@ function VehicleDetails() {
       <p><strong>Description:</strong> {vehicle.description}</p>
 
       <h2 style={{ marginTop: "30px" }}>💬 Chat with our team</h2>
+
+      {!user && (
+        <div style={{ background: "#fff3e0", padding: "15px", borderRadius: "8px", marginBottom: "15px" }}>
+          <p>Please <span onClick={() => navigate("/login")} style={{ color: "#e25822", cursor: "pointer", fontWeight: "bold" }}>login</span> or <span onClick={() => navigate("/register")} style={{ color: "#e25822", cursor: "pointer", fontWeight: "bold" }}>register</span> to chat with our team.</p>
+        </div>
+      )}
+
       <div style={{ border: "1px solid #ddd", borderRadius: "10px", padding: "15px", height: "250px", overflowY: "auto", marginBottom: "10px", background: "#f9f9f9" }}>
         {messages.length === 0 && <p style={{ color: "#aaa" }}>No messages yet. Ask us anything!</p>}
         {messages.map((msg) => (
@@ -61,22 +78,22 @@ function VehicleDetails() {
           </div>
         ))}
       </div>
-      <input
-        placeholder="Your name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        style={{ padding: "8px", marginRight: "10px", borderRadius: "8px", border: "1px solid #ccc" }}
-      />
-      <input
-        placeholder="Type a message..."
-        value={newMessage}
-        onChange={(e) => setNewMessage(e.target.value)}
-        style={{ padding: "8px", width: "300px", borderRadius: "8px", border: "1px solid #ccc" }}
-      />
-      <button
-        onClick={sendMessage}
-        style={{ padding: "8px 16px", marginLeft: "10px", background: "#e25822", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}
-      >Send</button>
+
+      {user && (
+        <div style={{ display: "flex", gap: "10px" }}>
+          <input
+            placeholder="Type a message..."
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+            style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid #ccc" }}
+          />
+          <button
+            onClick={sendMessage}
+            style={{ padding: "8px 16px", background: "#e25822", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}
+          >Send</button>
+        </div>
+      )}
     </div>
   );
 }
