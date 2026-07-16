@@ -43,6 +43,8 @@ function VehicleDetails() {
       sender: user.displayName || user.email,
       role: "user",
       time: new Date(),
+      uid: user.uid,
+      vehicleName: vehicle.name,
     });
     setNewMessage("");
   };

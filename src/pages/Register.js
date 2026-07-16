@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { auth } from "../firebase";
+import { doc, setDoc } from "firebase/firestore";
+import { auth, db } from "../firebase";
 import { useNavigate } from "react-router-dom";
 
 function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("user");
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -16,7 +18,12 @@ function Register() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName: name });
-      navigate("/");
+      await setDoc(doc(db, "users", userCredential.user.uid), {
+        name,
+        email,
+        role,
+      });
+      navigate(role === "admin" ? "/admin" : "/dashboard");
     } catch (err) {
       setError("Registration failed. Email may already be in use.");
     }
@@ -50,6 +57,33 @@ function Register() {
         onChange={(e) => setPassword(e.target.value)}
         style={{ width: "100%", padding: "10px", marginBottom: "12px", borderRadius: "8px", border: "1px solid #ccc", boxSizing: "border-box" }}
       />
+
+      <div style={{ marginBottom: "16px" }}>
+        <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}>Register as:</label>
+        <div style={{ display: "flex", gap: "20px" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+            <input
+              type="radio"
+              name="role"
+              value="user"
+              checked={role === "user"}
+              onChange={() => setRole("user")}
+            />
+            User
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+            <input
+              type="radio"
+              name="role"
+              value="admin"
+              checked={role === "admin"}
+              onChange={() => setRole("admin")}
+            />
+            Admin
+          </label>
+        </div>
+      </div>
+
       <button
         onClick={handleRegister}
         style={{ width: "100%", padding: "12px", background: "#e25822", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "16px" }}

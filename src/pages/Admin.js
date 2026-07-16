@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { collection, addDoc, getDocs, deleteDoc, doc, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db, CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } from "../firebase";
+import { useNavigate } from "react-router-dom";
 
 function Admin() {
+  const navigate = useNavigate();
   const [vehicles, setVehicles] = useState([]);
   const [form, setForm] = useState({ name: "", price: "", year: "", mileage: "", color: "", description: "" });
   const [imageFile, setImageFile] = useState(null);
@@ -16,6 +18,7 @@ function Admin() {
 
   useEffect(() => {
     fetchVehicles();
+    if (sessionStorage.getItem("phoenixAdmin") === "true") setLoggedIn(true);
   }, []);
 
   useEffect(() => {
@@ -33,8 +36,10 @@ function Admin() {
   };
 
   const handleLogin = () => {
-    if (password === "phoenix123") setLoggedIn(true);
-    else alert("Wrong password!");
+    if (password === "phoenix123") {
+      setLoggedIn(true);
+      sessionStorage.setItem("phoenixAdmin", "true");
+    } else alert("Wrong password!");
   };
 
   const handleImageChange = (e) => {
@@ -100,6 +105,10 @@ function Admin() {
   return (
     <div style={{ padding: "20px", fontFamily: "Arial" }}>
       <h1 style={{ color: "#e25822" }}>🔥 Phoenix Admin Panel</h1>
+      <button onClick={() => navigate("/admin/dashboard")}
+        style={{ marginBottom: "20px", padding: "8px 16px", background: "#333", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}>
+        📊 Dashboard
+      </button>
 
       <h2>Add New Vehicle</h2>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "20px" }}>

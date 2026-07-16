@@ -44,6 +44,10 @@ function Home() {
           {user ? (
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <span>👋 {user.displayName || user.email}</span>
+              <button onClick={() => navigate("/dashboard")}
+                style={{ padding: "8px 16px", background: "#333", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}>
+                My Dashboard
+              </button>
               <button onClick={handleLogout}
                 style={{ padding: "8px 16px", background: "#e25822", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}>
                 Logout
