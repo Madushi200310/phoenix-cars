@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { collection, collectionGroup, getDocs } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
+import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 
 function AdminDashboard() {
@@ -25,14 +26,26 @@ function AdminDashboard() {
     loadStats();
   }, []);
 
+  const handleLogout = async () => {
+    sessionStorage.removeItem("phoenixAdmin");
+    await signOut(auth);
+    navigate("/login");
+  };
+
   return (
     <div style={{ padding: "20px", fontFamily: "Arial" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
         <h1 style={{ color: "#e25822" }}>🔥 Admin Dashboard</h1>
-        <button onClick={() => navigate("/admin")}
-          style={{ padding: "8px 16px", background: "#333", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}>
-          ← Back to Admin Panel
-        </button>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button onClick={() => navigate("/admin")}
+            style={{ padding: "8px 16px", background: "#333", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}>
+            ← Back to Admin Panel
+          </button>
+          <button onClick={handleLogout}
+            style={{ padding: "8px 16px", background: "#e25822", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}>
+            Logout
+          </button>
+        </div>
       </div>
 
       {loading ? (
