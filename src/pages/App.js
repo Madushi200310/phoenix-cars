@@ -15,10 +15,10 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/vehicle/:id" element={<VehicleDetails />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/dashboard" element={<UserDashboard />} />
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
       </Routes>
     </Router>
   );
