@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { collection, addDoc, getDocs, deleteDoc, doc, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db, CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } from "../firebase";
 import { useNavigate } from "react-router-dom";
+import { signOut } from "firebase/auth";
+import { auth } from "../firebase";
 
 function Admin() {
   const navigate = useNavigate();
@@ -13,13 +15,21 @@ function Admin() {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [messages, setMessages] = useState([]);
   const [reply, setReply] = useState("");
-  const [password, setPassword] = useState("");
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check if user is admin (from session or Firebase)
+    const checkAdmin = async () => {
+      const adminSession = sessionStorage.getItem("phoenixAdmin");
+      if (adminSession !== "true") {
+        navigate("/login");
+        return;
+      }
+      setLoading(false);
+    };
+    checkAdmin();
     fetchVehicles();
-    if (sessionStorage.getItem("phoenixAdmin") === "true") setLoggedIn(true);
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     if (!selectedVehicle) return;
@@ -35,11 +45,10 @@ function Admin() {
     setVehicles(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
   };
 
-  const handleLogin = () => {
-    if (password === "phoenix123") {
-      setLoggedIn(true);
-      sessionStorage.setItem("phoenixAdmin", "true");
-    } else alert("Wrong password!");
+  const handleLogout = async () => {
+    sessionStorage.removeItem("phoenixAdmin");
+    await signOut(auth);
+    navigate("/login");
   };
 
   const handleImageChange = (e) => {
@@ -73,13 +82,16 @@ function Admin() {
       fetchVehicles();
     } catch (error) {
       alert("Error adding vehicle. Please try again.");
+      console.error(error);
     }
     setUploading(false);
   };
 
   const handleDelete = async (id) => {
-    await deleteDoc(doc(db, "vehicles", id));
-    setVehicles(vehicles.filter((v) => v.id !== id));
+    if (window.confirm("Are you sure you want to delete this vehicle?")) {
+      await deleteDoc(doc(db, "vehicles", id));
+      setVehicles(vehicles.filter((v) => v.id !== id));
+    }
   };
 
   const handleReply = async () => {
@@ -93,22 +105,29 @@ function Admin() {
     setReply("");
   };
 
-  if (!loggedIn) return (
-    <div style={{ padding: "40px", fontFamily: "Arial", textAlign: "center" }}>
-      <h1 style={{ color: "#e25822" }}>🔥 Phoenix Admin</h1>
-      <input type="password" placeholder="Enter admin password" value={password} onChange={(e) => setPassword(e.target.value)}
-        style={{ padding: "10px", borderRadius: "8px", border: "1px solid #ccc", marginRight: "10px" }} />
-      <button onClick={handleLogin} style={{ padding: "10px 20px", background: "#e25822", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}>Login</button>
-    </div>
-  );
+  if (loading) {
+    return (
+      <div style={{ padding: "40px", textAlign: "center" }}>
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: "20px", fontFamily: "Arial" }}>
-      <h1 style={{ color: "#e25822" }}>🔥 Phoenix Admin Panel</h1>
-      <button onClick={() => navigate("/admin/dashboard")}
-        style={{ marginBottom: "20px", padding: "8px 16px", background: "#333", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}>
-        📊 Dashboard
-      </button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+        <h1 style={{ color: "#e25822" }}>🔥 Phoenix Admin Panel</h1>
+        <div>
+          <button onClick={() => navigate("/admin/dashboard")}
+            style={{ marginRight: "10px", padding: "8px 16px", background: "#333", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}>
+            📊 Dashboard
+          </button>
+          <button onClick={handleLogout}
+            style={{ padding: "8px 16px", background: "#cc0000", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}>
+            Logout
+          </button>
+        </div>
+      </div>
 
       <h2>Add New Vehicle</h2>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "20px" }}>
