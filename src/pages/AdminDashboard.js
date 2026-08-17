@@ -9,18 +9,24 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Reuse the same simple session gate as the Admin panel
   useEffect(() => {
-    if (sessionStorage.getItem("phoenixAdmin") !== "true") {
-      navigate("/admin");
-    }
+    const checkAdmin = () => {
+      if (sessionStorage.getItem("phoenixAdmin") !== "true") {
+        navigate("/login");
+      }
+    };
+    checkAdmin();
   }, [navigate]);
 
   useEffect(() => {
     const loadStats = async () => {
-      const vehiclesSnap = await getDocs(collection(db, "vehicles"));
-      const messagesSnap = await getDocs(collectionGroup(db, "messages"));
-      setStats({ vehicles: vehiclesSnap.size, messages: messagesSnap.size });
+      try {
+        const vehiclesSnap = await getDocs(collection(db, "vehicles"));
+        const messagesSnap = await getDocs(collectionGroup(db, "messages"));
+        setStats({ vehicles: vehiclesSnap.size, messages: messagesSnap.size });
+      } catch (error) {
+        console.error("Error loading stats:", error);
+      }
       setLoading(false);
     };
     loadStats();
