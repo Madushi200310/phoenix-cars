@@ -8,33 +8,58 @@ function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("user");
+  const [role, setRole] = useState(""); // No default role
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleRegister = async () => {
     if (!name.trim()) return setError("Please enter your name.");
+    if (!email.trim()) return setError("Please enter your email.");
     if (password.length < 6) return setError("Password must be at least 6 characters.");
+    if (!role) return setError("Please select your role (Admin or User).");
+
+    setLoading(true);
+    setError("");
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName: name });
+      
       await setDoc(doc(db, "users", userCredential.user.uid), {
         name,
         email,
         role,
+        createdAt: new Date(),
       });
-      navigate(role === "admin" ? "/admin" : "/dashboard");
+
+      // Navigate based on role
+      if (role === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (err) {
-      setError("Registration failed. Email may already be in use.");
+      setError("Registration failed. Email may already be in use or invalid.");
+      console.error(err);
     }
+    setLoading(false);
   };
 
   return (
-    <div style={{ padding: "40px", fontFamily: "Arial", maxWidth: "400px", margin: "80px auto", border: "1px solid #ddd", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
+    <div style={{ 
+      padding: "40px", 
+      fontFamily: "Arial", 
+      maxWidth: "400px", 
+      margin: "80px auto", 
+      border: "1px solid #ddd", 
+      borderRadius: "12px", 
+      boxShadow: "0 4px 12px rgba(0,0,0,0.1)" 
+    }}>
       <h1 style={{ color: "#e25822", textAlign: "center" }}>🔥 Phoenix Cars</h1>
       <h2 style={{ textAlign: "center", marginBottom: "20px" }}>Create Account</h2>
 
-      {error && <p style={{ color: "red", textAlign: "center" }}>{error}</p>}
+      {error && <p style={{ color: "red", textAlign: "center", background: "#ffe6e6", padding: "10px", borderRadius: "8px" }}>{error}</p>}
 
       <input
         type="text"
@@ -55,23 +80,27 @@ function Register() {
         placeholder="Password (min 6 characters)"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        style={{ width: "100%", padding: "10px", marginBottom: "12px", borderRadius: "8px", border: "1px solid #ccc", boxSizing: "border-box" }}
+        style={{ width: "100%", padding: "10px", marginBottom: "20px", borderRadius: "8px", border: "1px solid #ccc", boxSizing: "border-box" }}
       />
 
-      <div style={{ marginBottom: "16px" }}>
-        <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}>Register as:</label>
-        <div style={{ display: "flex", gap: "20px" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
-            <input
-              type="radio"
-              name="role"
-              value="user"
-              checked={role === "user"}
-              onChange={() => setRole("user")}
-            />
-            User
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+      <div style={{ marginBottom: "20px" }}>
+        <label style={{ display: "block", marginBottom: "12px", fontWeight: "bold", color: "#333" }}>
+          Select Your Role:
+        </label>
+        <div style={{ display: "flex", gap: "20px", justifyContent: "center" }}>
+          <label 
+            style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: "8px", 
+              cursor: "pointer",
+              padding: "10px 20px",
+              border: role === "admin" ? "2px solid #e25822" : "2px solid #ddd",
+              borderRadius: "8px",
+              background: role === "admin" ? "#fff5f0" : "white",
+              transition: "all 0.3s ease"
+            }}
+          >
             <input
               type="radio"
               name="role"
@@ -79,19 +108,62 @@ function Register() {
               checked={role === "admin"}
               onChange={() => setRole("admin")}
             />
-            Admin
+            <span style={{ fontWeight: role === "admin" ? "bold" : "normal" }}>👑 Admin</span>
+          </label>
+          
+          <label 
+            style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: "8px", 
+              cursor: "pointer",
+              padding: "10px 20px",
+              border: role === "user" ? "2px solid #e25822" : "2px solid #ddd",
+              borderRadius: "8px",
+              background: role === "user" ? "#fff5f0" : "white",
+              transition: "all 0.3s ease"
+            }}
+          >
+            <input
+              type="radio"
+              name="role"
+              value="user"
+              checked={role === "user"}
+              onChange={() => setRole("user")}
+            />
+            <span style={{ fontWeight: role === "user" ? "bold" : "normal" }}>👤 User</span>
           </label>
         </div>
+        {!role && (
+          <p style={{ color: "#999", fontSize: "12px", textAlign: "center", marginTop: "8px" }}>
+            ⚠️ Please select a role to continue
+          </p>
+        )}
       </div>
 
       <button
         onClick={handleRegister}
-        style={{ width: "100%", padding: "12px", background: "#e25822", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "16px" }}
-      >Create Account</button>
+        disabled={loading}
+        style={{ 
+          width: "100%", 
+          padding: "12px", 
+          background: loading ? "#ccc" : "#e25822", 
+          color: "#fff", 
+          border: "none", 
+          borderRadius: "8px", 
+          cursor: loading ? "not-allowed" : "pointer", 
+          fontSize: "16px",
+          transition: "background 0.3s ease"
+        }}
+      >
+        {loading ? "Creating Account..." : "Create Account"}
+      </button>
 
       <p style={{ textAlign: "center", marginTop: "16px" }}>
         Already have an account?{" "}
-        <span onClick={() => navigate("/login")} style={{ color: "#e25822", cursor: "pointer", fontWeight: "bold" }}>Login</span>
+        <span onClick={() => navigate("/login")} style={{ color: "#e25822", cursor: "pointer", fontWeight: "bold" }}>
+          Login
+        </span>
       </p>
     </div>
   );
