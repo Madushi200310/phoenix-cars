@@ -4,12 +4,7 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
-
-// Import VehicleDetails - you need this file
-// For now, let's create a placeholder
-function VehicleDetails() {
-  return <div>Vehicle Details Page - Coming Soon</div>;
-}
+import VehicleDetails from "./pages/VehicleDetails";
 
 function App() {
   return (

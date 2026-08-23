@@ -13,7 +13,7 @@ function VehicleDetails() {
   const [user, setUser] = useState(null);
   const [showTracker, setShowTracker] = useState(false);
   const [vehicleLocation, setVehicleLocation] = useState(null);
-  const [activeTab, setActiveTab] = useState("details"); // details, chat, location
+  const [activeTab, setActiveTab] = useState("details");
 
   useEffect(() => {
     const fetchVehicle = async () => {
@@ -154,7 +154,7 @@ function VehicleDetails() {
         <div style={styles.detailsColumn}>
           <div style={styles.vehicleHeader}>
             <h1 style={styles.vehicleName}>{vehicle.name}</h1>
-            <p style={styles.vehiclePrice}>${vehicle.price?.toLocaleString() || "N/A"}</p>
+            <p style={styles.vehiclePrice}> ${vehicle.price?.toLocaleString() || "N/A"}</p>
           </div>
 
           <div style={styles.specsGrid}>
@@ -433,10 +433,6 @@ const styles = {
     fontSize: "14px",
     transition: "all 0.3s",
     boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
-    "&:hover": {
-      background: "#f5f5f5",
-      transform: "translateX(-4px)",
-    },
   },
   mainContent: {
     display: "grid",
@@ -579,10 +575,6 @@ const styles = {
     fontWeight: "600",
     transition: "all 0.3s",
     boxShadow: "0 4px 12px rgba(40,167,69,0.3)",
-    "&:hover": {
-      transform: "translateY(-2px)",
-      boxShadow: "0 6px 20px rgba(40,167,69,0.4)",
-    },
   },
   chatButton: {
     flex: 1,
@@ -596,10 +588,6 @@ const styles = {
     fontWeight: "600",
     transition: "all 0.3s",
     boxShadow: "0 4px 12px rgba(226,88,34,0.3)",
-    "&:hover": {
-      transform: "translateY(-2px)",
-      boxShadow: "0 6px 20px rgba(226,88,34,0.4)",
-    },
   },
   tabsContainer: {
     display: "flex",
@@ -669,9 +657,6 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: "15px",
-    "& h3": {
-      margin: 0,
-    },
   },
   chatMessages: {
     flex: 1,
@@ -732,10 +717,6 @@ const styles = {
     border: "2px solid #e0e0e0",
     fontSize: "14px",
     transition: "border-color 0.3s",
-    "&:focus": {
-      borderColor: "#e25822",
-      outline: "none",
-    },
   },
   sendButton: {
     padding: "12px 24px",
@@ -747,9 +728,6 @@ const styles = {
     fontSize: "14px",
     fontWeight: "600",
     transition: "background 0.3s",
-    "&:hover": {
-      background: "#c94a1a",
-    },
   },
   locationTab: {
     padding: "10px 0",
@@ -759,9 +737,6 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: "15px",
-    "& h3": {
-      margin: 0,
-    },
   },
   locationStatus: {
     padding: "6px 14px",
