@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { collection, collectionGroup, query, where, orderBy, onSnapshot, getDocs, addDoc, deleteDoc, doc } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -13,7 +13,15 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("inquiries");
   const [vehicles, setVehicles] = useState([]);
-  const [form, setForm] = useState({ name: "", price: "", year: "", mileage: "", color: "", description: "" });
+  const [form, setForm] = useState({ 
+    name: "", 
+    price: "", 
+    year: "", 
+    mileage: "", 
+    color: "", 
+    description: "",
+    modelUrl: ""
+  });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -21,9 +29,12 @@ function Dashboard() {
   const [reply, setReply] = useState("");
   const [vehicleMessages, setVehicleMessages] = useState([]);
   const [stats, setStats] = useState({ vehicles: 0, messages: 0 });
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const navigate = useNavigate();
+  const notificationSound = useRef(null);
 
-  // Check user role from Firestore
   const checkUserRole = async (uid) => {
     try {
       const userDoc = await getDoc(doc(db, "users", uid));
@@ -53,6 +64,29 @@ function Dashboard() {
     });
     return () => unsubscribeAuth();
   }, [navigate]);
+
+  // Alternative: Load messages using a different approach
+  const loadMessagesAlternative = async () => {
+    if (!user) return;
+    try {
+      const vehiclesSnap = await getDocs(collection(db, "vehicles"));
+      const allVehicles = vehiclesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      let userThreads = [];
+      for (const vehicle of allVehicles) {
+        const messagesSnap = await getDocs(collection(db, "vehicles", vehicle.id, "messages"));
+        const userMessages = messagesSnap.docs.filter(doc => doc.data().uid === user.uid);
+        if (userMessages.length > 0) {
+          userThreads.push({ vehicleId: vehicle.id, vehicleName: vehicle.name });
+        }
+      }
+      setThreads(userThreads);
+      setLoading(false);
+    } catch (error) {
+      console.error("Alternative load failed:", error);
+      setLoading(false);
+    }
+  };
 
   // Load user's inquiry threads for both admin and user
   useEffect(() => {
@@ -86,29 +120,7 @@ function Dashboard() {
       console.error("Error setting up listener:", error);
       loadMessagesAlternative();
     }
-  }, [user]);
-
-  // Alternative: Load messages using a different approach
-  const loadMessagesAlternative = async () => {
-    try {
-      const vehiclesSnap = await getDocs(collection(db, "vehicles"));
-      const allVehicles = vehiclesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-      let userThreads = [];
-      for (const vehicle of allVehicles) {
-        const messagesSnap = await getDocs(collection(db, "vehicles", vehicle.id, "messages"));
-        const userMessages = messagesSnap.docs.filter(doc => doc.data().uid === user.uid);
-        if (userMessages.length > 0) {
-          userThreads.push({ vehicleId: vehicle.id, vehicleName: vehicle.name });
-        }
-      }
-      setThreads(userThreads);
-      setLoading(false);
-    } catch (error) {
-      console.error("Alternative load failed:", error);
-      setLoading(false);
-    }
-  };
+  }, [user]); // ✅ Removed loadMessagesAlternative from deps
 
   // Subscribe to messages for each thread
   useEffect(() => {
@@ -138,6 +150,7 @@ function Dashboard() {
     if (userRole === "admin") {
       fetchVehicles();
       loadStats();
+      listenForNewMessages();
     }
   }, [userRole]);
 
@@ -157,6 +170,70 @@ function Dashboard() {
       setStats({ vehicles: vehiclesSnap.size, messages: messagesSnap.size });
     } catch (error) {
       console.error("Error loading stats:", error);
+    }
+  };
+
+  // Listen for new messages from users (Admin only)
+  const listenForNewMessages = () => {
+    try {
+      const q = query(
+        collectionGroup(db, "messages"),
+        where("role", "==", "user"),
+        orderBy("time", "desc")
+      );
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "added") {
+            const msg = change.doc.data();
+            const vehicleId = change.doc.ref.parent.parent.id;
+            
+            if (msg.uid !== user?.uid) {
+              const notification = {
+                id: change.doc.id,
+                vehicleId: vehicleId,
+                vehicleName: msg.vehicleName || "Unknown Vehicle",
+                message: msg.text,
+                sender: msg.sender || "Customer",
+                time: msg.time?.toDate?.() || new Date(),
+                read: false
+              };
+              
+              setNotifications(prev => [notification, ...prev]);
+              setUnreadCount(prev => prev + 1);
+              
+              if (notificationSound.current) {
+                notificationSound.current.play().catch(err => console.log("Sound play failed"));
+              }
+              
+              try {
+                if (Notification.permission === "granted") {
+                  const notif = new Notification(" New Message from Customer!", {
+                    body: ` ${notification.vehicleName}\n ${notification.sender}\n ${notification.message.substring(0, 80)}${notification.message.length > 80 ? '...' : ''}`,
+                    icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%3C/text%3E%3C/svg%3E",
+                    tag: notification.vehicleId,
+                    requireInteraction: true
+                  });
+                  
+                  notif.onclick = function() {
+                    window.focus();
+                    setSelectedVehicle({ id: notification.vehicleId, name: notification.vehicleName });
+                    setActiveTab("inquiries");
+                    setShowNotifications(false);
+                    markNotificationAsRead(notification.id);
+                  };
+                }
+              } catch (e) {
+                console.log("Browser notification error:", e);
+              }
+            }
+          }
+        });
+      });
+
+      return () => unsubscribe();
+    } catch (error) {
+      console.error("Error listening for new messages:", error);
     }
   };
 
@@ -207,8 +284,12 @@ function Dashboard() {
     setUploading(true);
     try {
       const imageUrl = await uploadImageToCloudinary();
-      await addDoc(collection(db, "vehicles"), { ...form, image: imageUrl });
-      setForm({ name: "", price: "", year: "", mileage: "", color: "", description: "" });
+      await addDoc(collection(db, "vehicles"), { 
+        ...form, 
+        image: imageUrl,
+        modelUrl: form.modelUrl || null
+      });
+      setForm({ name: "", price: "", year: "", mileage: "", color: "", description: "", modelUrl: "" });
       setImageFile(null);
       setImagePreview(null);
       fetchVehicles();
@@ -238,11 +319,35 @@ function Dashboard() {
         time: new Date(),
       });
       setReply("");
+      
+      setNotifications(prev => 
+        prev.map(n => n.vehicleId === selectedVehicle.id ? { ...n, read: true } : n)
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
       console.error("Error sending reply:", error);
       alert("Failed to send reply. Please try again.");
     }
   };
+
+  const markNotificationAsRead = (notificationId) => {
+    setNotifications(prev => 
+      prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+    );
+    setUnreadCount(prev => Math.max(0, prev - 1));
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setUnreadCount(0);
+  };
+
+  // Request notification permission
+  useEffect(() => {
+    if (Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -254,15 +359,75 @@ function Dashboard() {
 
   return (
     <div style={styles.container}>
+      {/* Notification Sound */}
+      <audio ref={notificationSound} src="data:audio/wav;base64,UklGRlAAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoAAACFj5yQk5SSlZSSk5KRkpGQkI+OjYyLiomIh4aFhIOCgYB/fn18e3p5eHd2dXRzcnFwb25tbGtqaWhoZ2ZlY2JhYF9eXVxbWllYV1ZVVFNSUVBPTk1MS0pJSEdGRURDQkFAPz49PDs6OTg3NjU0MzIxMC8uLSwrKikoJyYlJCMiISAfHh0cGxoZGBcWFRQTEhEQDw4NDAsKCQgHBgUEAwIBAA==" />
+      
       {/* Header */}
       <div style={styles.header}>
-        <div>
+        <div style={styles.headerLeft}>
           <h1 style={styles.logo}> Phoenix Cars</h1>
           <p style={styles.roleText}>
             {userRole === "admin" ? " Admin Dashboard" : " User Dashboard"}
           </p>
         </div>
         <div style={styles.headerActions}>
+          {/* Notification Bell for Admin */}
+          {userRole === "admin" && (
+            <div style={styles.notificationWrapper}>
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                style={styles.notificationBell}
+              >
+                
+                {unreadCount > 0 && (
+                  <span style={styles.notificationBadge}>{unreadCount}</span>
+                )}
+              </button>
+              
+              {/* Notification Dropdown */}
+              {showNotifications && (
+                <div style={styles.notificationDropdown}>
+                  <div style={styles.notificationHeader}>
+                    <span>Notifications</span>
+                    {unreadCount > 0 && (
+                      <button onClick={markAllAsRead} style={styles.markAllRead}>
+                        Mark all as read
+                      </button>
+                    )}
+                  </div>
+                  {notifications.length === 0 ? (
+                    <p style={styles.noNotifications}>No notifications</p>
+                  ) : (
+                    notifications.map((n) => (
+                      <div 
+                        key={n.id} 
+                        style={{
+                          ...styles.notificationItem,
+                          background: n.read ? "#fff" : "#fff3e0"
+                        }}
+                        onClick={() => {
+                          markNotificationAsRead(n.id);
+                          setSelectedVehicle({ id: n.vehicleId, name: n.vehicleName });
+                          setActiveTab("inquiries");
+                          setShowNotifications(false);
+                        }}
+                      >
+                        <div style={styles.notificationContent}>
+                          <strong>{n.vehicleName}</strong>
+                          <p style={styles.notificationMessage}>{n.sender}: {n.message.substring(0, 60)}...</p>
+                          <small style={styles.notificationTime}>
+                            {n.time.toLocaleString()}
+                          </small>
+                        </div>
+                        {!n.read && <span style={styles.unreadDot}></span>}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          
           <span style={styles.userName}> {user?.displayName || user?.email}</span>
           <button onClick={() => navigate("/")} style={styles.btnSecondary}>
             Home
@@ -280,17 +445,27 @@ function Dashboard() {
           {/* Admin Tabs */}
           <div style={styles.tabs}>
             <button
-              onClick={() => setActiveTab("inquiries")}
+              onClick={() => {
+                setActiveTab("inquiries");
+                setShowNotifications(false);
+              }}
               style={{
                 ...styles.tabButton,
                 background: activeTab === "inquiries" ? "#e25822" : "transparent",
                 color: activeTab === "inquiries" ? "#fff" : "#333",
+                position: "relative",
               }}
             >
                Inquiries
+              {unreadCount > 0 && activeTab !== "inquiries" && (
+                <span style={styles.tabBadge}>{unreadCount}</span>
+              )}
             </button>
             <button
-              onClick={() => setActiveTab("admin")}
+              onClick={() => {
+                setActiveTab("admin");
+                setShowNotifications(false);
+              }}
               style={{
                 ...styles.tabButton,
                 background: activeTab === "admin" ? "#e25822" : "transparent",
@@ -300,7 +475,10 @@ function Dashboard() {
                Admin Panel
             </button>
             <button
-              onClick={() => setActiveTab("stats")}
+              onClick={() => {
+                setActiveTab("stats");
+                setShowNotifications(false);
+              }}
               style={{
                 ...styles.tabButton,
                 background: activeTab === "stats" ? "#e25822" : "transparent",
@@ -364,13 +542,13 @@ function Dashboard() {
                   <h3>Add New Vehicle</h3>
                   <div style={styles.formGrid}>
                     <input
-                      placeholder="Name"
+                      placeholder="Vehicle Name"
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
                       style={styles.formInput}
                     />
                     <input
-                      placeholder="Price"
+                      placeholder="Price ($)"
                       value={form.price}
                       onChange={(e) => setForm({ ...form, price: e.target.value })}
                       style={styles.formInput}
@@ -391,6 +569,12 @@ function Dashboard() {
                       placeholder="Color"
                       value={form.color}
                       onChange={(e) => setForm({ ...form, color: e.target.value })}
+                      style={styles.formInput}
+                    />
+                    <input
+                      placeholder=" 3D Model URL (optional)"
+                      value={form.modelUrl || ""}
+                      onChange={(e) => setForm({ ...form, modelUrl: e.target.value })}
                       style={styles.formInput}
                     />
                     <textarea
@@ -438,6 +622,9 @@ function Dashboard() {
                       <h4 style={styles.vehicleName}>{v.name}</h4>
                       <p style={styles.vehiclePrice}> ${v.price}</p>
                       <p style={styles.vehicleYear}> {v.year}</p>
+                      {v.modelUrl && (
+                        <p style={styles.vehicleModel}> 3D Model Available</p>
+                      )}
                       <div style={styles.vehicleActions}>
                         <button
                           onClick={() => setSelectedVehicle(v)}
@@ -462,17 +649,35 @@ function Dashboard() {
               <div>
                 <h2 style={styles.sectionTitle}> Statistics</h2>
                 <div style={styles.statsGrid}>
-                  <div style={styles.statCard}>
+                  <div 
+                    style={styles.statCard} 
+                    onClick={() => setActiveTab("admin")}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  >
                     <h2 style={styles.statNumber}>{stats.vehicles}</h2>
                     <p style={styles.statLabel}> Total Vehicles</p>
+                    <p style={styles.statHint}>Click to manage →</p>
                   </div>
-                  <div style={styles.statCard}>
+                  <div 
+                    style={styles.statCard} 
+                    onClick={() => setActiveTab("inquiries")}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  >
                     <h2 style={styles.statNumber}>{stats.messages}</h2>
                     <p style={styles.statLabel}> Total Inquiries</p>
+                    <p style={styles.statHint}>Click to view →</p>
                   </div>
-                  <div style={styles.statCard}>
+                  <div 
+                    style={styles.statCard} 
+                    onClick={() => setActiveTab("inquiries")}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  >
                     <h2 style={styles.statNumber}>{threads.length}</h2>
                     <p style={styles.statLabel}> Active Inquiries</p>
+                    <p style={styles.statHint}>Click to view →</p>
                   </div>
                 </div>
               </div>
@@ -497,7 +702,7 @@ function Dashboard() {
                   onClick={() => navigate(`/vehicle/${vehicleId}`)}
                   style={styles.threadTitle}
                 >
-                  🚗 {vehicleName}
+                   {vehicleName}
                   <span style={styles.viewLink}>Click to view</span>
                 </h3>
                 <div style={styles.messageContainer}>
@@ -617,6 +822,10 @@ const styles = {
     gap: "10px",
     marginBottom: "20px",
   },
+  headerLeft: {
+    display: "flex",
+    flexDirection: "column",
+  },
   logo: {
     color: "#e25822",
     margin: 0,
@@ -632,6 +841,7 @@ const styles = {
     gap: "10px",
     alignItems: "center",
     flexWrap: "wrap",
+    position: "relative",
   },
   userName: {
     color: "#555",
@@ -665,16 +875,101 @@ const styles = {
     cursor: "pointer",
     fontSize: "14px",
   },
+  notificationWrapper: {
+    position: "relative",
+  },
+  notificationBell: {
+    position: "relative",
+    fontSize: "24px",
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    padding: "5px 10px",
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: "-5px",
+    right: "-5px",
+    backgroundColor: "#dc3545",
+    color: "#fff",
+    borderRadius: "50%",
+    padding: "2px 8px",
+    fontSize: "12px",
+    minWidth: "18px",
+    textAlign: "center",
+  },
+  notificationDropdown: {
+    position: "absolute",
+    top: "40px",
+    right: "0",
+    width: "350px",
+    maxHeight: "400px",
+    overflowY: "auto",
+    backgroundColor: "#fff",
+    borderRadius: "12px",
+    boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+    zIndex: 1000,
+    padding: "10px",
+  },
+  notificationHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "10px",
+    borderBottom: "1px solid #eee",
+    fontWeight: "bold",
+  },
+  markAllRead: {
+    background: "none",
+    border: "none",
+    color: "#e25822",
+    cursor: "pointer",
+    fontSize: "12px",
+  },
+  noNotifications: {
+    textAlign: "center",
+    color: "#999",
+    padding: "20px",
+  },
+  notificationItem: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "10px",
+    borderRadius: "8px",
+    marginBottom: "5px",
+    cursor: "pointer",
+    transition: "background 0.3s",
+  },
+  notificationContent: {
+    flex: 1,
+  },
+  notificationMessage: {
+    margin: "5px 0",
+    fontSize: "14px",
+    color: "#333",
+  },
+  notificationTime: {
+    fontSize: "11px",
+    color: "#999",
+  },
+  unreadDot: {
+    width: "10px",
+    height: "10px",
+    borderRadius: "50%",
+    backgroundColor: "#e25822",
+    flexShrink: 0,
+    marginLeft: "10px",
+  },
   tabs: {
     display: "flex",
     gap: "10px",
     marginBottom: "20px",
-    borderBottom: "2px solid #eee",
-    paddingBottom: "10px",
     backgroundColor: "#fff",
     padding: "10px",
     borderRadius: "12px",
     boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    position: "relative",
   },
   tabButton: {
     padding: "10px 24px",
@@ -684,6 +979,19 @@ const styles = {
     fontSize: "14px",
     fontWeight: "bold",
     transition: "all 0.3s",
+    position: "relative",
+  },
+  tabBadge: {
+    position: "absolute",
+    top: "-8px",
+    right: "-8px",
+    background: "#dc3545",
+    color: "#fff",
+    borderRadius: "50%",
+    padding: "2px 8px",
+    fontSize: "12px",
+    minWidth: "20px",
+    textAlign: "center",
   },
   sectionTitle: {
     marginTop: 0,
@@ -836,6 +1144,12 @@ const styles = {
     fontSize: "14px",
     color: "#666",
   },
+  vehicleModel: {
+    margin: "3px 0",
+    fontSize: "12px",
+    color: "#28a745",
+    fontWeight: "bold",
+  },
   vehicleActions: {
     display: "flex",
     gap: "5px",
@@ -872,6 +1186,8 @@ const styles = {
     padding: "25px",
     textAlign: "center",
     boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    cursor: "pointer",
+    transition: "transform 0.3s ease, box-shadow 0.3s ease",
   },
   statNumber: {
     margin: 0,
@@ -881,6 +1197,12 @@ const styles = {
   statLabel: {
     margin: "8px 0 0 0",
     color: "#666",
+  },
+  statHint: {
+    margin: "8px 0 0 0",
+    color: "#999",
+    fontSize: "12px",
+    fontStyle: "italic",
   },
   modalOverlay: {
     position: "fixed",
