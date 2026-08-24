@@ -97,7 +97,7 @@ function Dashboard() {
       console.error("Error setting up listener:", error);
       loadMessagesAlternative();
     }
-  }, [user]);
+  }, [user, loadMessagesAlternative]);
 
   const loadMessagesAlternative = async () => {
     try {
@@ -150,7 +150,7 @@ function Dashboard() {
       loadStats();
       listenForNewMessages();
     }
-  }, [userRole]);
+  }, [userRole, fetchVehicles, loadStats, listenForNewMessages]);
 
   const fetchVehicles = async () => {
     try {
