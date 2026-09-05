@@ -1,70 +1,225 @@
-# Getting Started with Create React App
+# 🔥 Phoenix Cars
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A full-featured car dealership web application with real-time chat, 3D model viewing, and vehicle tracking capabilities.
 
-## Available Scripts
+## 🚀 Live Demo
+
+[View Live Application]([https://phoenix-cars-jfw7tf4mg-madushi200310s-projects.vercel.app/])
+
+## 📋 Features
+
+### 🚗 Vehicle Management
+- Browse vehicles with search functionality
+- View detailed vehicle information
+- Interactive 3D model viewer for supported vehicles
+- Real-time vehicle location tracking (Sri Lanka)
+
+### 💬 Communication
+- Real-time chat between users and admin team
+- Instant notifications for new messages
+- Admin reply system for customer inquiries
+
+### 👥 User System
+- User authentication (Login/Register)
+- Role-based access (Admin/User)
+- User dashboard with inquiry history
+- Admin panel with full CRUD operations
+
+### 📊 Admin Features
+- Add/Delete vehicles with image upload
+- View and reply to customer messages
+- Dashboard statistics and analytics
+- Real-time notification system
+
+### 📍 Location Tracking
+- Vehicle location tracking in Sri Lanka
+- Interactive map integration
+- Live location updates
+
+## 🛠️ Technologies Used
+
+### Frontend
+- **React** - UI Framework
+- **React Router** - Navigation and routing
+- **CSS** - Styling
+
+### Backend & Services
+- **Firebase**
+  - Firestore - Database
+  - Authentication - User management
+- **Cloudinary** - Image hosting and management
+- **Vercel** - Hosting and deployment
+
+### APIs & Integrations
+- OpenStreetMap - Location tracking
+- Firebase Realtime Database - Real-time features
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js (v14 or higher)
+- npm or yarn
+- Firebase account
+- Cloudinary account
+
+### Installation
+
+1. **Clone the repository**
+```bash
+git clone https://github.com/Madushi200310/phoenix-cars.git
+cd phoenix-cars
+```
+
+2. **Install dependencies**
+```bash
+npm install
+```
+
+3. **Configure Firebase**
+   - Create a Firebase project
+   - Enable Authentication (Email/Password)
+   - Set up Firestore Database
+   - Copy your Firebase config
+
+4. **Set up environment variables**
+   Create a `.env` file in the root directory:
+```env
+REACT_APP_FIREBASE_API_KEY=your_api_key
+REACT_APP_FIREBASE_AUTH_DOMAIN=your_auth_domain
+REACT_APP_FIREBASE_PROJECT_ID=your_project_id
+REACT_APP_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+REACT_APP_FIREBASE_APP_ID=your_app_id
+```
+
+5. **Configure Cloudinary**
+   - Create a Cloudinary account
+   - Get your Cloud Name
+   - Create an upload preset
+   - Update `firebase.js` with your Cloudinary credentials
+
+6. **Start the development server**
+```bash
+npm start
+```
+
+The app will open at `http://localhost:3000`
+
+## 📁 Project Structure
+
+```
+phoenix-cars/
+├── src/
+│   ├── pages/
+│   │   ├── Home.js          # Vehicle listing page
+│   │   ├── VehicleDetails.js # Individual vehicle view
+│   │   ├── Dashboard.js     # User/Admin dashboard
+│   │   ├── Login.js         # Login page
+│   │   └── Register.js      # Registration page
+│   ├── components/
+│   │   └── VehicleCard.js   # Vehicle card component
+│   ├── firebase.js          # Firebase configuration
+│   └── App.js               # Main application
+├── public/
+│   └── index.html
+├── package.json
+└── README.md
+```
+
+## 🔧 Available Scripts
 
 In the project directory, you can run:
 
 ### `npm start`
-
-Runs the app in the development mode.\
+Runs the app in development mode.\
 Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### `npm run build`
+Builds the app for production to the `build` folder.\
+It correctly bundles React in production mode and optimizes the build.
 
 ### `npm test`
+Launches the test runner in interactive watch mode.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## 🚀 Deployment
 
-### `npm run build`
+### Deploy to Vercel
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+1. **Install Vercel CLI**
+```bash
+npm install -g vercel
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+2. **Deploy**
+```bash
+vercel --prod
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Or connect your GitHub repository to Vercel for automatic deployments.
 
-### `npm run eject`
+### Deploy to Firebase Hosting
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```bash
+npm install -g firebase-tools
+firebase login
+firebase init hosting
+firebase deploy
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## 📊 Database Structure
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### Firestore Collections
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+```javascript
+vehicles/
+  └── {vehicleId}/
+      ├── name
+      ├── price
+      ├── year
+      ├── mileage
+      ├── color
+      ├── description
+      ├── image (Cloudinary URL)
+      ├── modelUrl (3D model URL)
+      └── messages/
+          └── {messageId}/
+              ├── text
+              ├── sender
+              ├── role (admin/user)
+              ├── time
+              └── uid
 
-## Learn More
+users/
+  └── {uid}/
+      ├── name
+      ├── email
+      └── role (admin/user)
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## 🤝 Contributing
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-### Code Splitting
+## 📝 License
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-### Analyzing the Bundle Size
+## 👥 Authors
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+- **Madushi200310** - Initial work
 
-### Making a Progressive Web App
+## 🙏 Acknowledgments
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+- Firebase for backend services
+- Cloudinary for image hosting
+- Vercel for hosting
+- OpenStreetMap for mapping services
 
-### Advanced Configuration
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+---
 
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+**Made with ❤️ by the Phoenix Cars Team**
