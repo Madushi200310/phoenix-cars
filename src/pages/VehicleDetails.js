@@ -1,8 +1,24 @@
 import React, { useEffect, useState } from "react";
-import { doc, getDoc, collection, addDoc, onSnapshot, query, orderBy } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  addDoc,
+  onSnapshot,
+  query,
+  orderBy,
+} from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { useParams, useNavigate } from "react-router-dom";
+
+// Format price in LKR
+const formatLKR = (value) => {
+  if (value === undefined || value === null || value === "") return "N/A";
+  const num = Number(value);
+  if (isNaN(num)) return value;
+  return `LKR ${num.toLocaleString("en-LK")}`;
+};
 
 function VehicleDetails() {
   const { id } = useParams();
@@ -29,7 +45,10 @@ function VehicleDetails() {
     };
     fetchVehicle();
 
-    const q = query(collection(db, "vehicles", id, "messages"), orderBy("time"));
+    const q = query(
+      collection(db, "vehicles", id, "messages"),
+      orderBy("time")
+    );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setMessages(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     });
@@ -49,10 +68,16 @@ function VehicleDetails() {
     if (vehicleLocation) {
       const interval = setInterval(() => {
         const movement = 0.001;
-        setVehicleLocation(prev => ({
+        setVehicleLocation((prev) => ({
           ...prev,
-          lat: Math.min(9.8, Math.max(5.9, prev.lat + (Math.random() - 0.5) * movement)),
-          lng: Math.min(81.9, Math.max(79.5, prev.lng + (Math.random() - 0.5) * movement)),
+          lat: Math.min(
+            9.8,
+            Math.max(5.9, prev.lat + (Math.random() - 0.5) * movement)
+          ),
+          lng: Math.min(
+            81.9,
+            Math.max(79.5, prev.lng + (Math.random() - 0.5) * movement)
+          ),
         }));
       }, 5000);
       return () => clearInterval(interval);
@@ -85,33 +110,34 @@ function VehicleDetails() {
     }
     setShowTracker(true);
     setActiveTab("location");
-    
+
     const sriLankaLocations = [
       { name: "Colombo", lat: 6.9271, lng: 79.8612 },
-      { name: "Galle", lat: 6.0323, lng: 80.2150 },
+      { name: "Galle", lat: 6.0323, lng: 80.215 },
       { name: "Kandy", lat: 7.2906, lng: 80.6337 },
       { name: "Jaffna", lat: 9.6615, lng: 80.0254 },
-      { name: "Arugam Bay", lat: 6.4240, lng: 81.4950 },
-      { name: "Dambulla", lat: 7.8731, lng: 80.7710 },
-      { name: "Hambantota", lat: 6.2542, lng: 81.1440 },
-      { name: "Anuradhapura", lat: 8.3690, lng: 80.3985 },
+      { name: "Arugam Bay", lat: 6.424, lng: 81.495 },
+      { name: "Dambulla", lat: 7.8731, lng: 80.771 },
+      { name: "Hambantota", lat: 6.2542, lng: 81.144 },
+      { name: "Anuradhapura", lat: 8.369, lng: 80.3985 },
       { name: "Nuwara Eliya", lat: 6.9758, lng: 80.5564 },
       { name: "Matara", lat: 5.9534, lng: 80.5523 },
-      { name: "Negombo", lat: 7.2098, lng: 79.8330 },
+      { name: "Negombo", lat: 7.2098, lng: 79.833 },
       { name: "Batticaloa", lat: 7.7169, lng: 81.7005 },
       { name: "Trincomalee", lat: 8.5776, lng: 81.2058 },
     ];
-    
-    const randomLocation = sriLankaLocations[Math.floor(Math.random() * sriLankaLocations.length)];
+
+    const randomLocation =
+      sriLankaLocations[Math.floor(Math.random() * sriLankaLocations.length)];
     const randomOffset = 0.01;
     setVehicleLocation({
       lat: randomLocation.lat + (Math.random() - 0.5) * randomOffset,
       lng: randomLocation.lng + (Math.random() - 0.5) * randomOffset,
-      name: randomLocation.name
+      name: randomLocation.name,
     });
-    
+
     addDoc(collection(db, "vehicles", id, "messages"), {
-      text: ` I'm interested in purchasing this vehicle! Currently in ${randomLocation.name}, Sri Lanka.`,
+      text: `I'm interested in purchasing this vehicle! Currently in ${randomLocation.name}, Sri Lanka.`,
       sender: user.displayName || user.email,
       role: "user",
       time: new Date(),
@@ -120,12 +146,13 @@ function VehicleDetails() {
     }).catch(console.error);
   };
 
-  if (!vehicle) return (
-    <div style={styles.loading}>
-      <div style={styles.loadingSpinner}></div>
-      <h2>Loading vehicle details...</h2>
-    </div>
-  );
+  if (!vehicle)
+    return (
+      <div style={styles.loading}>
+        <div style={styles.loadingSpinner}></div>
+        <h2 style={styles.loadingText}>Loading vehicle details...</h2>
+      </div>
+    );
 
   return (
     <div style={styles.container}>
@@ -140,10 +167,14 @@ function VehicleDetails() {
         <div style={styles.imageColumn}>
           <div style={styles.imageContainer}>
             {vehicle.image ? (
-              <img src={vehicle.image} alt={vehicle.name} style={styles.mainImage} />
+              <img
+                src={vehicle.image}
+                alt={vehicle.name}
+                style={styles.mainImage}
+              />
             ) : (
               <div style={styles.noImage}>
-                <span style={styles.noImageIcon}></span>
+                <span style={styles.noImageIcon}>🚗</span>
                 <p>No Image Available</p>
               </div>
             )}
@@ -154,26 +185,28 @@ function VehicleDetails() {
         <div style={styles.detailsColumn}>
           <div style={styles.vehicleHeader}>
             <h1 style={styles.vehicleName}>{vehicle.name}</h1>
-            <p style={styles.vehiclePrice}> ${vehicle.price?.toLocaleString() || "N/A"}</p>
+            <p style={styles.vehiclePrice}>{formatLKR(vehicle.price)}</p>
           </div>
 
           <div style={styles.specsGrid}>
             <div style={styles.specItem}>
-              <span style={styles.specIcon}></span>
+              <span style={styles.specIcon}>📅</span>
               <div>
                 <span style={styles.specLabel}>Year</span>
                 <span style={styles.specValue}>{vehicle.year || "N/A"}</span>
               </div>
             </div>
             <div style={styles.specItem}>
-              <span style={styles.specIcon}></span>
+              <span style={styles.specIcon}>🛣️</span>
               <div>
                 <span style={styles.specLabel}>Mileage</span>
-                <span style={styles.specValue}>{vehicle.mileage || "N/A"} km</span>
+                <span style={styles.specValue}>
+                  {vehicle.mileage || "N/A"} km
+                </span>
               </div>
             </div>
             <div style={styles.specItem}>
-              <span style={styles.specIcon}></span>
+              <span style={styles.specIcon}>🎨</span>
               <div>
                 <span style={styles.specLabel}>Color</span>
                 <span style={styles.specValue}>{vehicle.color || "N/A"}</span>
@@ -182,14 +215,15 @@ function VehicleDetails() {
           </div>
 
           <div style={styles.descriptionSection}>
-            <h3 style={styles.sectionTitle}> Description</h3>
-            <p style={styles.descriptionText}>{vehicle.description || "No description available."}</p>
+            <h3 style={styles.sectionTitle}>📝 Description</h3>
+            <p style={styles.descriptionText}>
+              {vehicle.description || "No description available."}
+            </p>
           </div>
 
-          {/* 3D Model */}
           {vehicle.modelUrl && (
             <div style={styles.modelSection}>
-              <h3 style={styles.sectionTitle}> 3D Model</h3>
+              <h3 style={styles.sectionTitle}>🔮 3D Model</h3>
               <div style={styles.modelContainer}>
                 <iframe
                   src={vehicle.modelUrl}
@@ -201,13 +235,18 @@ function VehicleDetails() {
             </div>
           )}
 
-          {/* Action Buttons */}
           <div style={styles.actionButtons}>
-            <button onClick={handleRequestPurchase} style={styles.purchaseButton}>
-               Request to Buy & Track Location
+            <button
+              onClick={handleRequestPurchase}
+              style={styles.purchaseButton}
+            >
+              ✅ Request to Buy & Track Location
             </button>
-            <button onClick={() => setActiveTab("chat")} style={styles.chatButton}>
-               Chat with Team
+            <button
+              onClick={() => setActiveTab("chat")}
+              style={styles.chatButton}
+            >
+              💬 Chat with Team
             </button>
           </div>
         </div>
@@ -219,32 +258,35 @@ function VehicleDetails() {
           onClick={() => setActiveTab("details")}
           style={{
             ...styles.tabButton,
-            background: activeTab === "details" ? "#e25822" : "#f5f5f5",
-            color: activeTab === "details" ? "#fff" : "#555",
+            ...(activeTab === "details"
+              ? styles.tabButtonActive
+              : styles.tabButtonInactive),
           }}
         >
-           Details
+          📋 Details
         </button>
         <button
           onClick={() => setActiveTab("chat")}
           style={{
             ...styles.tabButton,
-            background: activeTab === "chat" ? "#e25822" : "#f5f5f5",
-            color: activeTab === "chat" ? "#fff" : "#555",
+            ...(activeTab === "chat"
+              ? styles.tabButtonActive
+              : styles.tabButtonInactive),
           }}
         >
-           Chat
+          💬 Chat
         </button>
         {showTracker && (
           <button
             onClick={() => setActiveTab("location")}
             style={{
               ...styles.tabButton,
-              background: activeTab === "location" ? "#e25822" : "#f5f5f5",
-              color: activeTab === "location" ? "#fff" : "#555",
+              ...(activeTab === "location"
+                ? styles.tabButtonActive
+                : styles.tabButtonInactive),
             }}
           >
-             Location
+            📍 Location
           </button>
         )}
       </div>
@@ -256,28 +298,28 @@ function VehicleDetails() {
           <div style={styles.detailsTab}>
             <div style={styles.detailsGrid}>
               <div style={styles.detailCard}>
-                <span style={styles.detailCardIcon}></span>
+                <span style={styles.detailCardIcon}>🚙</span>
                 <div>
                   <p style={styles.detailCardLabel}>Vehicle Type</p>
                   <p style={styles.detailCardValue}>SUV</p>
                 </div>
               </div>
               <div style={styles.detailCard}>
-                <span style={styles.detailCardIcon}></span>
+                <span style={styles.detailCardIcon}>⛽</span>
                 <div>
                   <p style={styles.detailCardLabel}>Fuel Type</p>
                   <p style={styles.detailCardValue}>Petrol</p>
                 </div>
               </div>
               <div style={styles.detailCard}>
-                <span style={styles.detailCardIcon}></span>
+                <span style={styles.detailCardIcon}>⚙️</span>
                 <div>
                   <p style={styles.detailCardLabel}>Transmission</p>
                   <p style={styles.detailCardValue}>Automatic</p>
                 </div>
               </div>
               <div style={styles.detailCard}>
-                <span style={styles.detailCardIcon}></span>
+                <span style={styles.detailCardIcon}>💺</span>
                 <div>
                   <p style={styles.detailCardLabel}>Seats</p>
                   <p style={styles.detailCardValue}>5</p>
@@ -291,10 +333,26 @@ function VehicleDetails() {
         {activeTab === "chat" && (
           <div style={styles.chatTab}>
             <div style={styles.chatHeader}>
-              <h3> Chat with Our Team</h3>
+              <h3 style={styles.chatTitle}>💬 Chat with Our Team</h3>
               {!user && (
                 <div style={styles.loginPrompt}>
-                  <p>Please <span onClick={() => navigate("/login")} style={styles.link}>login</span> or <span onClick={() => navigate("/register")} style={styles.link}>register</span> to chat.</p>
+                  <p style={styles.loginPromptText}>
+                    Please{" "}
+                    <span
+                      onClick={() => navigate("/login")}
+                      style={styles.link}
+                    >
+                      login
+                    </span>{" "}
+                    or{" "}
+                    <span
+                      onClick={() => navigate("/register")}
+                      style={styles.link}
+                    >
+                      register
+                    </span>{" "}
+                    to chat.
+                  </p>
                 </div>
               )}
             </div>
@@ -302,7 +360,7 @@ function VehicleDetails() {
             <div style={styles.chatMessages}>
               {messages.length === 0 && (
                 <div style={styles.noMessages}>
-                  <span style={styles.noMessagesIcon}></span>
+                  <span style={styles.noMessagesIcon}>💬</span>
                   <p>No messages yet. Ask us anything!</p>
                 </div>
               )}
@@ -311,14 +369,16 @@ function VehicleDetails() {
                   key={msg.id}
                   style={{
                     ...styles.chatMessage,
-                    justifyContent: msg.role === "admin" ? "flex-end" : "flex-start",
+                    justifyContent:
+                      msg.role === "admin" ? "flex-end" : "flex-start",
                   }}
                 >
                   <div
                     style={{
                       ...styles.chatBubble,
-                      background: msg.role === "admin" ? "#e25822" : "#f0f0f0",
-                      color: msg.role === "admin" ? "#fff" : "#333",
+                      ...(msg.role === "admin"
+                        ? styles.chatBubbleAdmin
+                        : styles.chatBubbleUser),
                     }}
                   >
                     <strong>{msg.sender}</strong>
@@ -337,7 +397,7 @@ function VehicleDetails() {
                   placeholder="Type a message..."
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+                  onKeyDown={(e) => e.key === "Enter" && sendMessage()}
                   style={styles.chatInput}
                 />
                 <button onClick={sendMessage} style={styles.sendButton}>
@@ -352,37 +412,50 @@ function VehicleDetails() {
         {activeTab === "location" && showTracker && vehicleLocation && (
           <div style={styles.locationTab}>
             <div style={styles.locationHeader}>
-              <h3> Vehicle Location - Sri Lanka</h3>
-              <span style={styles.locationStatus}> Live Tracking</span>
+              <h3 style={styles.locationTitle}>
+                📍 Vehicle Location - Sri Lanka
+              </h3>
+              <span style={styles.locationStatus}>🟢 Live Tracking</span>
             </div>
             <div style={styles.mapContainer}>
               <iframe
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${vehicleLocation.lng-0.05}%2C${vehicleLocation.lat-0.05}%2C${vehicleLocation.lng+0.05}%2C${vehicleLocation.lat+0.05}&layer=mapnik&marker=${vehicleLocation.lat}%2C${vehicleLocation.lng}`}
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${
+                  vehicleLocation.lng - 0.05
+                }%2C${vehicleLocation.lat - 0.05}%2C${
+                  vehicleLocation.lng + 0.05
+                }%2C${
+                  vehicleLocation.lat + 0.05
+                }&layer=mapnik&marker=${vehicleLocation.lat}%2C${
+                  vehicleLocation.lng
+                }`}
                 style={styles.mapFrame}
                 title="Vehicle Location - Sri Lanka"
               />
             </div>
             <div style={styles.locationInfo}>
               <div style={styles.locationInfoItem}>
-                <span style={styles.locationInfoIcon}></span>
+                <span style={styles.locationInfoIcon}>📍</span>
                 <div>
-                  <span style={styles.locationInfoLabel}>Current Location</span>
+                  <span style={styles.locationInfoLabel}>
+                    Current Location
+                  </span>
                   <span style={styles.locationInfoValue}>
                     {vehicleLocation.name || "Sri Lanka"}
                   </span>
                 </div>
               </div>
               <div style={styles.locationInfoItem}>
-                <span style={styles.locationInfoIcon}></span>
+                <span style={styles.locationInfoIcon}>🧭</span>
                 <div>
                   <span style={styles.locationInfoLabel}>Coordinates</span>
                   <span style={styles.locationInfoValue}>
-                    Lat: {vehicleLocation.lat.toFixed(6)}, Lng: {vehicleLocation.lng.toFixed(6)}
+                    Lat: {vehicleLocation.lat.toFixed(6)}, Lng:{" "}
+                    {vehicleLocation.lng.toFixed(6)}
                   </span>
                 </div>
               </div>
               <div style={styles.locationInfoItem}>
-                <span style={styles.locationInfoIcon}></span>
+                <span style={styles.locationInfoIcon}>🚚</span>
                 <div>
                   <span style={styles.locationInfoLabel}>Status</span>
                   <span style={styles.locationInfoValue}>In Transit</span>
@@ -398,11 +471,11 @@ function VehicleDetails() {
 
 const styles = {
   container: {
-    padding: "30px",
+    padding: "30px 28px",
     fontFamily: "'Segoe UI', Arial, sans-serif",
-    maxWidth: "1200px",
+    maxWidth: "1250px",
     margin: "0 auto",
-    background: "#f8f9fa",
+    background: "#faf6f0",
     minHeight: "100vh",
   },
   loading: {
@@ -410,29 +483,35 @@ const styles = {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    padding: "80px",
-    color: "#666",
+    padding: "100px 20px",
+    color: "#7a5c3a",
+    background: "#faf6f0",
+    minHeight: "100vh",
+  },
+  loadingText: {
+    color: "#7a5c3a",
+    fontWeight: "600",
   },
   loadingSpinner: {
     width: "40px",
     height: "40px",
-    border: "4px solid #f3f3f3",
-    borderTop: "4px solid #e25822",
+    border: "4px solid #f3e9d2",
+    borderTop: "4px solid #b8860b",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
     marginBottom: "20px",
   },
   backButton: {
-    padding: "10px 24px",
-    backgroundColor: "#fff",
-    color: "#333",
-    border: "1px solid #ddd",
+    padding: "10px 22px",
+    backgroundColor: "#fffdf8",
+    color: "#8b0000",
+    border: "1.5px solid #d4a017",
     borderRadius: "8px",
     cursor: "pointer",
-    marginBottom: "25px",
-    fontSize: "14px",
+    marginBottom: "24px",
+    fontSize: "13px",
+    fontWeight: "600",
     transition: "all 0.3s",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
   },
   mainContent: {
     display: "grid",
@@ -444,12 +523,13 @@ const styles = {
     position: "relative",
   },
   imageContainer: {
-    background: "#fff",
+    background: "#fffdf8",
     borderRadius: "16px",
     overflow: "hidden",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+    border: "1px solid #efe6d3",
+    boxShadow: "0 4px 20px rgba(139,0,0,0.08)",
     height: "100%",
-    minHeight: "400px",
+    minHeight: "420px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -457,7 +537,7 @@ const styles = {
   mainImage: {
     width: "100%",
     height: "100%",
-    maxHeight: "500px",
+    maxHeight: "520px",
     objectFit: "cover",
   },
   noImage: {
@@ -465,7 +545,7 @@ const styles = {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    color: "#999",
+    color: "#b8a884",
     padding: "40px",
   },
   noImageIcon: {
@@ -475,25 +555,26 @@ const styles = {
   detailsColumn: {
     display: "flex",
     flexDirection: "column",
-    gap: "20px",
+    gap: "18px",
   },
   vehicleHeader: {
-    background: "#fff",
+    background: "#fffdf8",
     padding: "24px",
     borderRadius: "16px",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+    border: "1px solid #efe6d3",
+    boxShadow: "0 4px 20px rgba(139,0,0,0.06)",
   },
   vehicleName: {
-    margin: "0 0 8px 0",
+    margin: "0 0 10px 0",
     fontSize: "28px",
-    color: "#1a1a2e",
-    fontWeight: "700",
+    color: "#2b1a0a",
+    fontWeight: "800",
   },
   vehiclePrice: {
     margin: 0,
-    fontSize: "32px",
-    fontWeight: "bold",
-    color: "#e25822",
+    fontSize: "28px",
+    fontWeight: "800",
+    color: "#b8860b",
   },
   specsGrid: {
     display: "grid",
@@ -504,55 +585,59 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "12px",
-    background: "#fff",
+    background: "#fffdf8",
     padding: "16px",
     borderRadius: "12px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+    border: "1px solid #efe6d3",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
   },
   specIcon: {
-    fontSize: "24px",
+    fontSize: "22px",
   },
   specLabel: {
     display: "block",
     fontSize: "11px",
-    color: "#999",
+    color: "#a08a63",
     textTransform: "uppercase",
     letterSpacing: "0.5px",
   },
   specValue: {
     display: "block",
-    fontSize: "16px",
-    fontWeight: "600",
-    color: "#1a1a2e",
+    fontSize: "15px",
+    fontWeight: "700",
+    color: "#2b1a0a",
   },
   descriptionSection: {
-    background: "#fff",
+    background: "#fffdf8",
     padding: "20px",
     borderRadius: "12px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+    border: "1px solid #efe6d3",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
   },
   sectionTitle: {
     margin: "0 0 12px 0",
     fontSize: "16px",
-    color: "#333",
+    color: "#2b1a0a",
+    fontWeight: "700",
   },
   descriptionText: {
     margin: 0,
-    color: "#555",
+    color: "#6b5636",
     lineHeight: "1.6",
     fontSize: "15px",
   },
   modelSection: {
-    background: "#fff",
+    background: "#fffdf8",
     padding: "20px",
     borderRadius: "12px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+    border: "1px solid #efe6d3",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
   },
   modelContainer: {
     height: "250px",
-    borderRadius: "8px",
+    borderRadius: "10px",
     overflow: "hidden",
-    background: "#f8f9fa",
+    background: "#faf6f0",
   },
   modelFrame: {
     width: "100%",
@@ -562,64 +647,76 @@ const styles = {
   actionButtons: {
     display: "flex",
     gap: "12px",
+    flexWrap: "wrap",
   },
   purchaseButton: {
     flex: 1,
+    minWidth: "220px",
     padding: "14px 20px",
-    background: "linear-gradient(135deg, #28a745, #20c997)",
+    background: "linear-gradient(135deg, #b8860b 0%, #8b0000 100%)",
     color: "#fff",
     border: "none",
     borderRadius: "10px",
     cursor: "pointer",
-    fontSize: "16px",
-    fontWeight: "600",
+    fontSize: "15px",
+    fontWeight: "700",
     transition: "all 0.3s",
-    boxShadow: "0 4px 12px rgba(40,167,69,0.3)",
+    boxShadow: "0 6px 16px rgba(139,0,0,0.25)",
   },
   chatButton: {
     flex: 1,
+    minWidth: "180px",
     padding: "14px 20px",
-    background: "linear-gradient(135deg, #e25822, #f39c12)",
-    color: "#fff",
-    border: "none",
+    background: "#fff",
+    color: "#8b0000",
+    border: "1.5px solid #d4a017",
     borderRadius: "10px",
     cursor: "pointer",
-    fontSize: "16px",
-    fontWeight: "600",
+    fontSize: "15px",
+    fontWeight: "700",
     transition: "all 0.3s",
-    boxShadow: "0 4px 12px rgba(226,88,34,0.3)",
   },
   tabsContainer: {
     display: "flex",
-    gap: "10px",
-    marginBottom: "0",
-    background: "#fff",
-    padding: "12px 20px 0 20px",
-    borderRadius: "16px 16px 0 0",
-    boxShadow: "0 -2px 10px rgba(0,0,0,0.04)",
+    gap: "8px",
+    background: "#fffdf8",
+    padding: "10px",
+    borderRadius: "14px 14px 0 0",
+    border: "1px solid #efe6d3",
+    borderBottom: "none",
+    flexWrap: "wrap",
   },
   tabButton: {
-    padding: "12px 24px",
+    padding: "10px 22px",
     border: "none",
-    borderRadius: "10px 10px 0 0",
+    borderRadius: "8px",
     cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "600",
+    fontSize: "13px",
+    fontWeight: "700",
     transition: "all 0.3s",
   },
+  tabButtonActive: {
+    background: "linear-gradient(135deg, #b8860b 0%, #8b0000 100%)",
+    color: "#fff",
+  },
+  tabButtonInactive: {
+    background: "transparent",
+    color: "#6b5636",
+  },
   tabContent: {
-    background: "#fff",
+    background: "#fffdf8",
     padding: "24px",
     borderRadius: "0 0 16px 16px",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+    border: "1px solid #efe6d3",
+    boxShadow: "0 4px 20px rgba(139,0,0,0.06)",
     marginBottom: "30px",
   },
   detailsTab: {
-    padding: "10px 0",
+    padding: "6px 0",
   },
   detailsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
+    gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
     gap: "15px",
   },
   detailCard: {
@@ -627,44 +724,53 @@ const styles = {
     alignItems: "center",
     gap: "15px",
     padding: "16px",
-    background: "#f8f9fa",
+    background: "#faf6f0",
     borderRadius: "12px",
-    border: "1px solid #eee",
+    border: "1px solid #efe6d3",
   },
   detailCardIcon: {
-    fontSize: "28px",
+    fontSize: "26px",
   },
   detailCardLabel: {
     margin: "0",
-    fontSize: "12px",
-    color: "#999",
+    fontSize: "11px",
+    color: "#a08a63",
     textTransform: "uppercase",
     letterSpacing: "0.5px",
   },
   detailCardValue: {
     margin: "4px 0 0 0",
     fontSize: "16px",
-    fontWeight: "600",
-    color: "#1a1a2e",
+    fontWeight: "700",
+    color: "#2b1a0a",
   },
   chatTab: {
     display: "flex",
     flexDirection: "column",
-    height: "450px",
+    height: "480px",
   },
   chatHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: "15px",
+    flexWrap: "wrap",
+    gap: "10px",
+  },
+  chatTitle: {
+    margin: 0,
+    color: "#2b1a0a",
+    fontSize: "16px",
+    fontWeight: "700",
   },
   chatMessages: {
     flex: 1,
     overflowY: "auto",
-    padding: "15px",
-    background: "#f8f9fa",
+    padding: "16px",
+    background: "#faf6f0",
     borderRadius: "12px",
     marginBottom: "15px",
+    border: "1px solid #efe6d3",
   },
   noMessages: {
     display: "flex",
@@ -672,7 +778,8 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     height: "100%",
-    color: "#aaa",
+    color: "#a08a63",
+    textAlign: "center",
   },
   noMessagesIcon: {
     fontSize: "48px",
@@ -687,6 +794,16 @@ const styles = {
     borderRadius: "16px",
     maxWidth: "70%",
     wordWrap: "break-word",
+    fontSize: "14px",
+    lineHeight: "1.5",
+  },
+  chatBubbleAdmin: {
+    background: "linear-gradient(135deg, #b8860b 0%, #8b0000 100%)",
+    color: "#fff",
+  },
+  chatBubbleUser: {
+    background: "#f5ecd8",
+    color: "#2b1a0a",
   },
   chatText: {
     margin: "4px 0",
@@ -698,45 +815,62 @@ const styles = {
   },
   loginPrompt: {
     background: "#fff3e0",
-    padding: "12px 16px",
+    padding: "10px 14px",
     borderRadius: "8px",
+    border: "1px solid #d4a017",
+  },
+  loginPromptText: {
+    margin: 0,
+    fontSize: "13px",
+    color: "#6b5636",
   },
   link: {
-    color: "#e25822",
+    color: "#8b0000",
     cursor: "pointer",
-    fontWeight: "bold",
+    fontWeight: "700",
   },
   chatInputContainer: {
     display: "flex",
     gap: "10px",
+    flexWrap: "wrap",
   },
   chatInput: {
     flex: 1,
+    minWidth: "180px",
     padding: "12px 16px",
     borderRadius: "10px",
-    border: "2px solid #e0e0e0",
+    border: "1.5px solid #efe6d3",
     fontSize: "14px",
-    transition: "border-color 0.3s",
+    color: "#2b1a0a",
+    background: "#fff",
+    outline: "none",
   },
   sendButton: {
     padding: "12px 24px",
-    background: "#e25822",
+    background: "linear-gradient(135deg, #b8860b 0%, #8b0000 100%)",
     color: "#fff",
     border: "none",
     borderRadius: "10px",
     cursor: "pointer",
     fontSize: "14px",
-    fontWeight: "600",
-    transition: "background 0.3s",
+    fontWeight: "700",
   },
   locationTab: {
-    padding: "10px 0",
+    padding: "6px 0",
   },
   locationHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: "15px",
+    flexWrap: "wrap",
+    gap: "10px",
+  },
+  locationTitle: {
+    margin: 0,
+    color: "#2b1a0a",
+    fontSize: "16px",
+    fontWeight: "700",
   },
   locationStatus: {
     padding: "6px 14px",
@@ -744,13 +878,14 @@ const styles = {
     color: "#2e7d32",
     borderRadius: "20px",
     fontSize: "12px",
-    fontWeight: "600",
+    fontWeight: "700",
   },
   mapContainer: {
-    height: "300px",
+    height: "320px",
     borderRadius: "12px",
     overflow: "hidden",
     marginBottom: "15px",
+    border: "1px solid #efe6d3",
   },
   mapFrame: {
     width: "100%",
@@ -759,7 +894,7 @@ const styles = {
   },
   locationInfo: {
     display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
+    gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
     gap: "15px",
   },
   locationInfoItem: {
@@ -767,9 +902,9 @@ const styles = {
     alignItems: "center",
     gap: "12px",
     padding: "14px",
-    background: "#f8f9fa",
+    background: "#faf6f0",
     borderRadius: "10px",
-    border: "1px solid #eee",
+    border: "1px solid #efe6d3",
   },
   locationInfoIcon: {
     fontSize: "20px",
@@ -777,26 +912,16 @@ const styles = {
   locationInfoLabel: {
     display: "block",
     fontSize: "11px",
-    color: "#999",
+    color: "#a08a63",
     textTransform: "uppercase",
     letterSpacing: "0.5px",
   },
   locationInfoValue: {
     display: "block",
     fontSize: "14px",
-    fontWeight: "600",
-    color: "#1a1a2e",
+    fontWeight: "700",
+    color: "#2b1a0a",
   },
 };
-
-// Add keyframe animation for loading spinner
-const styleSheet = document.createElement("style");
-styleSheet.textContent = `
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-`;
-document.head.appendChild(styleSheet);
 
 export default VehicleDetails;

@@ -1,9 +1,43 @@
-import React, { useEffect, useState, useRef } from "react";
-import { collection, collectionGroup, query, where, orderBy, onSnapshot, getDocs, addDoc, deleteDoc, doc } from "firebase/firestore";
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import {
+  collection,
+  collectionGroup,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  getDocs,
+  addDoc,
+  deleteDoc,
+  doc,
+  getDoc,
+  updateDoc,
+} from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { getDoc } from "firebase/firestore";
+
+// Format price in LKR (for display)
+const formatLKR = (value) => {
+  if (value === undefined || value === null || value === "") return "N/A";
+  const num = Number(value);
+  if (isNaN(num)) return value;
+  return `LKR ${num.toLocaleString("en-LK")}`;
+};
+
+// Format input value — strips non-digits, then prefixes with "LKR "
+const formatPriceInput = (value) => {
+  if (value === undefined || value === null) return "";
+  const digits = String(value).replace(/[^\d]/g, "");
+  if (!digits) return "";
+  return `LKR ${Number(digits).toLocaleString("en-LK")}`;
+};
+
+// Parse input value — strips non-digits (for Firestore storage)
+const parsePriceValue = (value) => {
+  if (value === undefined || value === null) return "";
+  return String(value).replace(/[^\d]/g, "");
+};
 
 function Dashboard() {
   const [user, setUser] = useState(null);
@@ -13,14 +47,14 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("inquiries");
   const [vehicles, setVehicles] = useState([]);
-  const [form, setForm] = useState({ 
-    name: "", 
-    price: "", 
-    year: "", 
-    mileage: "", 
-    color: "", 
+  const [form, setForm] = useState({
+    name: "",
+    price: "",
+    year: "",
+    mileage: "",
+    color: "",
     description: "",
-    modelUrl: "" // Added 3D model field
+    modelUrl: "",
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -32,10 +66,15 @@ function Dashboard() {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [editingVehicle, setEditingVehicle] = useState(null);
   const navigate = useNavigate();
   const notificationSound = useRef(null);
 
-  const checkUserRole = async (uid) => {
+  // ═══════════════════════════════════════════════
+  // Helper functions (memoized)
+  // ═══════════════════════════════════════════════
+
+  const checkUserRole = useCallback(async (uid) => {
     try {
       const userDoc = await getDoc(doc(db, "users", uid));
       if (userDoc.exists()) {
@@ -48,66 +87,24 @@ function Dashboard() {
       console.error("Error fetching user role:", error);
       return "user";
     }
-  };
+  }, []);
 
-  // Auth listener
-  useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
-      if (!currentUser) {
-        navigate("/login");
-      } else {
-        setUser(currentUser);
-        const role = await checkUserRole(currentUser.uid);
-        setUserRole(role);
-        setLoading(false);
-      }
-    });
-    return () => unsubscribeAuth();
-  }, [navigate]);
-
-  // Load user's inquiry threads
-  useEffect(() => {
-    if (!user) return;
-
-    try {
-      const q = query(
-        collectionGroup(db, "messages"),
-        where("uid", "==", user.uid),
-        orderBy("time")
-      );
-
-      const unsubscribe = onSnapshot(q,
-        (snapshot) => {
-          const found = {};
-          snapshot.docs.forEach((docSnap) => {
-            const vehicleId = docSnap.ref.parent.parent.id;
-            found[vehicleId] = docSnap.data().vehicleName || "Vehicle";
-          });
-          setThreads(Object.entries(found).map(([vehicleId, vehicleName]) => ({ vehicleId, vehicleName })));
-          setLoading(false);
-        },
-        (error) => {
-          console.error("Error fetching messages:", error);
-          loadMessagesAlternative();
-        }
-      );
-
-      return () => unsubscribe();
-    } catch (error) {
-      console.error("Error setting up listener:", error);
-      loadMessagesAlternative();
-    }
-  }, [user, loadMessagesAlternative]);
-
-  const loadMessagesAlternative = async () => {
+  const loadMessagesAlternative = useCallback(async () => {
     try {
       const vehiclesSnap = await getDocs(collection(db, "vehicles"));
-      const allVehicles = vehiclesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const allVehicles = vehiclesSnap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }));
 
       let userThreads = [];
       for (const vehicle of allVehicles) {
-        const messagesSnap = await getDocs(collection(db, "vehicles", vehicle.id, "messages"));
-        const userMessages = messagesSnap.docs.filter(doc => doc.data().uid === user.uid);
+        const messagesSnap = await getDocs(
+          collection(db, "vehicles", vehicle.id, "messages")
+        );
+        const userMessages = messagesSnap.docs.filter(
+          (d) => d.data().uid === user?.uid
+        );
         if (userMessages.length > 0) {
           userThreads.push({ vehicleId: vehicle.id, vehicleName: vehicle.name });
         }
@@ -118,50 +115,20 @@ function Dashboard() {
       console.error("Alternative load failed:", error);
       setLoading(false);
     }
-  };
+  }, [user]);
 
-  // Subscribe to messages for each thread
-  useEffect(() => {
-    if (threads.length === 0) return;
-
-    const unsubscribes = [];
-    threads.forEach(({ vehicleId }) => {
-      try {
-        const q = query(collection(db, "vehicles", vehicleId, "messages"), orderBy("time"));
-        const unsub = onSnapshot(q, (snapshot) => {
-          const msgs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-          setMessagesByVehicle((prev) => ({ ...prev, [vehicleId]: msgs }));
-        });
-        unsubscribes.push(unsub);
-      } catch (error) {
-        console.error(`Error subscribing to messages for vehicle ${vehicleId}:`, error);
-      }
-    });
-
-    return () => {
-      unsubscribes.forEach((unsub) => unsub());
-    };
-  }, [threads]);
-
-  // Load vehicles for admin
-  useEffect(() => {
-    if (userRole === "admin") {
-      fetchVehicles();
-      loadStats();
-      listenForNewMessages();
-    }
-  }, [userRole, fetchVehicles, loadStats, listenForNewMessages]);
-
-  const fetchVehicles = async () => {
+  const fetchVehicles = useCallback(async () => {
     try {
       const querySnapshot = await getDocs(collection(db, "vehicles"));
-      setVehicles(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      setVehicles(
+        querySnapshot.docs.map((d) => ({ id: d.id, ...d.data() }))
+      );
     } catch (error) {
       console.error("Error fetching vehicles:", error);
     }
-  };
+  }, []);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const vehiclesSnap = await getDocs(collection(db, "vehicles"));
       const messagesSnap = await getDocs(collectionGroup(db, "messages"));
@@ -169,9 +136,16 @@ function Dashboard() {
     } catch (error) {
       console.error("Error loading stats:", error);
     }
-  };
-    // Listen for new messages from users (Admin only)
-  const listenForNewMessages = () => {
+  }, []);
+
+  const markNotificationAsRead = useCallback((notificationId) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
+    );
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+  }, []);
+
+  const listenForNewMessages = useCallback(() => {
     try {
       const q = query(
         collectionGroup(db, "messages"),
@@ -184,41 +158,52 @@ function Dashboard() {
           if (change.type === "added") {
             const msg = change.doc.data();
             const vehicleId = change.doc.ref.parent.parent.id;
-            
-            // Check if message is not from current admin
+
             if (msg.uid !== user?.uid) {
-              // Create notification
               const notification = {
                 id: change.doc.id,
-                vehicleId: vehicleId,
+                vehicleId,
                 vehicleName: msg.vehicleName || "Unknown Vehicle",
                 message: msg.text,
                 sender: msg.sender || "Customer",
                 time: msg.time?.toDate?.() || new Date(),
-                read: false
+                read: false,
               };
-              
-              setNotifications(prev => [notification, ...prev]);
-              setUnreadCount(prev => prev + 1);
-              
-              // Play notification sound if available
+
+              setNotifications((prev) => [notification, ...prev]);
+              setUnreadCount((prev) => prev + 1);
+
               if (notificationSound.current) {
-                notificationSound.current.play().catch(err => console.log("Sound play failed"));
+                notificationSound.current
+                  .play()
+                  .catch((err) => console.log("Sound play failed:", err));
               }
-              
-              // Show browser notification if permitted
+
               try {
-                if (Notification.permission === "granted") {
-                  const notif = new Notification("🔔 New Message from Customer!", {
-                    body: `🚗 ${notification.vehicleName}\n👤 ${notification.sender}\n💬 ${notification.message.substring(0, 80)}${notification.message.length > 80 ? '...' : ''}`,
-                    icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🚗%3C/text%3E%3C/svg%3E",
-                    tag: notification.vehicleId,
-                    requireInteraction: true
-                  });
-                  
-                  notif.onclick = function() {
+                if (
+                  typeof Notification !== "undefined" &&
+                  Notification.permission === "granted"
+                ) {
+                  const notif = new Notification(
+                    "🔔 New Message from Customer!",
+                    {
+                      body: `🚗 ${notification.vehicleName}\n👤 ${
+                        notification.sender
+                      }\n💬 ${notification.message.substring(0, 80)}${
+                        notification.message.length > 80 ? "..." : ""
+                      }`,
+                      icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🚗%3C/text%3E%3C/svg%3E",
+                      tag: notification.vehicleId,
+                      requireInteraction: true,
+                    }
+                  );
+
+                  notif.onclick = function () {
                     window.focus();
-                    setSelectedVehicle({ id: notification.vehicleId, name: notification.vehicleName });
+                    setSelectedVehicle({
+                      id: notification.vehicleId,
+                      name: notification.vehicleName,
+                    });
                     setActiveTab("inquiries");
                     setShowNotifications(false);
                     markNotificationAsRead(notification.id);
@@ -236,21 +221,131 @@ function Dashboard() {
     } catch (error) {
       console.error("Error listening for new messages:", error);
     }
-  };
+  }, [user, markNotificationAsRead]);
 
-  // Subscribe to messages for selected vehicle (admin)
+  // ═══════════════════════════════════════════════
+  // Effects
+  // ═══════════════════════════════════════════════
+
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      if (!currentUser) {
+        navigate("/login");
+      } else {
+        setUser(currentUser);
+        const role = await checkUserRole(currentUser.uid);
+        setUserRole(role);
+        setLoading(false);
+      }
+    });
+    return () => unsubscribeAuth();
+  }, [navigate, checkUserRole]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    try {
+      const q = query(
+        collectionGroup(db, "messages"),
+        where("uid", "==", user.uid),
+        orderBy("time")
+      );
+
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const found = {};
+          snapshot.docs.forEach((docSnap) => {
+            const vehicleId = docSnap.ref.parent.parent.id;
+            found[vehicleId] = docSnap.data().vehicleName || "Vehicle";
+          });
+          setThreads(
+            Object.entries(found).map(([vehicleId, vehicleName]) => ({
+              vehicleId,
+              vehicleName,
+            }))
+          );
+          setLoading(false);
+        },
+        (error) => {
+          console.error("Error fetching messages:", error);
+          loadMessagesAlternative();
+        }
+      );
+
+      return () => unsubscribe();
+    } catch (error) {
+      console.error("Error setting up listener:", error);
+      loadMessagesAlternative();
+    }
+  }, [user, loadMessagesAlternative]);
+
+  useEffect(() => {
+    if (threads.length === 0) return;
+
+    const unsubscribes = [];
+    threads.forEach(({ vehicleId }) => {
+      try {
+        const q = query(
+          collection(db, "vehicles", vehicleId, "messages"),
+          orderBy("time")
+        );
+        const unsub = onSnapshot(q, (snapshot) => {
+          const msgs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+          setMessagesByVehicle((prev) => ({ ...prev, [vehicleId]: msgs }));
+        });
+        unsubscribes.push(unsub);
+      } catch (error) {
+        console.error(
+          `Error subscribing to messages for vehicle ${vehicleId}:`,
+          error
+        );
+      }
+    });
+
+    return () => {
+      unsubscribes.forEach((unsub) => unsub());
+    };
+  }, [threads]);
+
+  useEffect(() => {
+    if (userRole === "admin") {
+      fetchVehicles();
+      loadStats();
+      listenForNewMessages();
+    }
+  }, [userRole, fetchVehicles, loadStats, listenForNewMessages]);
+
   useEffect(() => {
     if (!selectedVehicle) return;
     try {
-      const q = query(collection(db, "vehicles", selectedVehicle.id, "messages"), orderBy("time"));
+      const q = query(
+        collection(db, "vehicles", selectedVehicle.id, "messages"),
+        orderBy("time")
+      );
       const unsubscribe = onSnapshot(q, (snapshot) => {
-        setVehicleMessages(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+        setVehicleMessages(
+          snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))
+        );
       });
       return () => unsubscribe();
     } catch (error) {
       console.error("Error subscribing to vehicle messages:", error);
     }
   }, [selectedVehicle]);
+
+  useEffect(() => {
+    if (
+      typeof Notification !== "undefined" &&
+      Notification.permission === "default"
+    ) {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // ═══════════════════════════════════════════════
+  // Handlers
+  // ═══════════════════════════════════════════════
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -259,40 +354,54 @@ function Dashboard() {
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
+    if (!file) return;
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
   };
 
   const uploadImageToCloudinary = async () => {
-    const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } = await import("../firebase");
+    const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } = await import(
+      "../firebase"
+    );
     const formData = new FormData();
     formData.append("file", imageFile);
     formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
     const response = await fetch(
       `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-      {
-        method: "POST",
-        body: formData,
-      }
+      { method: "POST", body: formData }
     );
     const data = await response.json();
     return data.secure_url;
   };
 
+  const resetForm = () => {
+    setForm({
+      name: "",
+      price: "",
+      year: "",
+      mileage: "",
+      color: "",
+      description: "",
+      modelUrl: "",
+    });
+    setImageFile(null);
+    setImagePreview(null);
+    setEditingVehicle(null);
+  };
+
+  // ─── ADD ───
   const handleAddVehicle = async () => {
     if (!form.name.trim()) return alert("Please enter vehicle name!");
     if (!imageFile) return alert("Please select an image!");
     setUploading(true);
     try {
       const imageUrl = await uploadImageToCloudinary();
-      await addDoc(collection(db, "vehicles"), { 
-        ...form, 
+      await addDoc(collection(db, "vehicles"), {
+        ...form,
         image: imageUrl,
-        modelUrl: form.modelUrl || null 
+        modelUrl: form.modelUrl || null,
       });
-      setForm({ name: "", price: "", year: "", mileage: "", color: "", description: "", modelUrl: "" });
-      setImageFile(null);
-      setImagePreview(null);
+      resetForm();
       fetchVehicles();
       loadStats();
     } catch (error) {
@@ -302,11 +411,62 @@ function Dashboard() {
     setUploading(false);
   };
 
+  // ─── START EDIT ───
+  const handleStartEdit = (vehicle) => {
+    setEditingVehicle(vehicle);
+    setForm({
+      name: vehicle.name || "",
+      price: vehicle.price || "",
+      year: vehicle.year || "",
+      mileage: vehicle.mileage || "",
+      color: vehicle.color || "",
+      description: vehicle.description || "",
+      modelUrl: vehicle.modelUrl || "",
+    });
+    setImageFile(null);
+    setImagePreview(vehicle.image || null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // ─── CANCEL EDIT ───
+  const handleCancelEdit = () => {
+    resetForm();
+  };
+
+  // ─── UPDATE ───
+  const handleUpdateVehicle = async () => {
+    if (!editingVehicle) return;
+    if (!form.name.trim()) return alert("Please enter vehicle name!");
+    setUploading(true);
+    try {
+      let imageUrl = editingVehicle.image;
+      if (imageFile) {
+        imageUrl = await uploadImageToCloudinary();
+      }
+
+      await updateDoc(doc(db, "vehicles", editingVehicle.id), {
+        ...form,
+        image: imageUrl,
+        modelUrl: form.modelUrl || null,
+      });
+
+      resetForm();
+      fetchVehicles();
+      loadStats();
+    } catch (error) {
+      alert("Error updating vehicle. Please try again.");
+      console.error(error);
+    }
+    setUploading(false);
+  };
+
+  // ─── DELETE ───
   const handleDeleteVehicle = async (id) => {
     if (window.confirm("Are you sure you want to delete this vehicle?")) {
       await deleteDoc(doc(db, "vehicles", id));
       setVehicles(vehicles.filter((v) => v.id !== id));
       loadStats();
+      if (editingVehicle?.id === id) resetForm();
     }
   };
 
@@ -320,62 +480,55 @@ function Dashboard() {
         time: new Date(),
       });
       setReply("");
-      
-      // Mark notification as read when replied
-      setNotifications(prev => 
-        prev.map(n => n.vehicleId === selectedVehicle.id ? { ...n, read: true } : n)
+
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.vehicleId === selectedVehicle.id ? { ...n, read: true } : n
+        )
       );
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
       console.error("Error sending reply:", error);
       alert("Failed to send reply. Please try again.");
     }
   };
 
-  const markNotificationAsRead = (notificationId) => {
-    setNotifications(prev => 
-      prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
-    );
-    setUnreadCount(prev => Math.max(0, prev - 1));
-  };
-
   const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     setUnreadCount(0);
   };
-
-  // Request notification permission
-  useEffect(() => {
-    if (Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
 
   if (loading) {
     return (
       <div style={styles.loadingContainer}>
-        <h2>Loading your dashboard...</h2>
+        <div style={styles.spinner}></div>
+        <h2 style={styles.loadingText}>Loading your dashboard...</h2>
       </div>
     );
   }
-    return (
+
+  return (
     <div style={styles.container}>
-      {/* Notification Sound */}
-      <audio ref={notificationSound} src="data:audio/wav;base64,UklGRlAAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoAAACFj5yQk5SSlZSSk5KRkpGQkI+OjYyLiomIh4aFhIOCgYB/fn18e3p5eHd2dXRzcnFwb25tbGtqaWhoZ2ZlY2JhYF9eXVxbWllYV1ZVVFNSUVBPTk1MS0pJSEdGRURDQkFAPz49PDs6OTg3NjU0MzIxMC8uLSwrKikoJyYlJCMiISAfHh0cGxoZGBcWFRQTEhEQDw4NDAsKCQgHBgUEAwIBAA==" />
-      
-      {/* Header */}
+      <audio
+        ref={notificationSound}
+        src="data:audio/wav;base64,UklGRlAAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoAAACFj5yQk5SSlZSSk5KRkpGQkI+OjYyLiomIh4aFhIOCgYB/fn18e3p5eHd2dXRzcnFwb25tbGtqaWhoZ2ZlY2JhYF9eXVxbWllYV1ZVVFNSUVBPTk1MS0pJSEdGRURDQkFAPz49PDs6OTg3NjU0MzIxMC8uLSwrKikoJyYlJCMiISAfHh0cGxoZGBcWFRQTEhEQDw4NDAsKCQgHBgUEAwIBAA=="
+      />
+
+      {/* ───────── HEADER ───────── */}
       <div style={styles.header}>
         <div style={styles.headerLeft}>
-          <h1 style={styles.logo}>🔥 Phoenix Cars</h1>
+          <h1 style={styles.logo}>
+            <span style={styles.logoMark}>✳</span> Phoenix Cars
+          </h1>
           <p style={styles.roleText}>
             {userRole === "admin" ? "👑 Admin Dashboard" : "👤 User Dashboard"}
           </p>
         </div>
+
         <div style={styles.headerActions}>
-          {/* Notification Bell for Admin */}
           {userRole === "admin" && (
             <div style={styles.notificationWrapper}>
-              <button 
+              <button
                 onClick={() => setShowNotifications(!showNotifications)}
                 style={styles.notificationBell}
               >
@@ -384,8 +537,7 @@ function Dashboard() {
                   <span style={styles.notificationBadge}>{unreadCount}</span>
                 )}
               </button>
-              
-              {/* Notification Dropdown */}
+
               {showNotifications && (
                 <div style={styles.notificationDropdown}>
                   <div style={styles.notificationHeader}>
@@ -400,22 +552,29 @@ function Dashboard() {
                     <p style={styles.noNotifications}>No notifications</p>
                   ) : (
                     notifications.map((n) => (
-                      <div 
-                        key={n.id} 
+                      <div
+                        key={n.id}
                         style={{
                           ...styles.notificationItem,
-                          background: n.read ? "#fff" : "#fff3e0"
+                          background: n.read ? "#fffdf8" : "#fff3e0",
                         }}
                         onClick={() => {
                           markNotificationAsRead(n.id);
-                          setSelectedVehicle({ id: n.vehicleId, name: n.vehicleName });
+                          setSelectedVehicle({
+                            id: n.vehicleId,
+                            name: n.vehicleName,
+                          });
                           setActiveTab("inquiries");
                           setShowNotifications(false);
                         }}
                       >
                         <div style={styles.notificationContent}>
-                          <strong>{n.vehicleName}</strong>
-                          <p style={styles.notificationMessage}>{n.sender}: {n.message.substring(0, 60)}...</p>
+                          <strong style={styles.notificationTitle}>
+                            {n.vehicleName}
+                          </strong>
+                          <p style={styles.notificationMessage}>
+                            {n.sender}: {n.message.substring(0, 60)}...
+                          </p>
                           <small style={styles.notificationTime}>
                             {n.time.toLocaleString()}
                           </small>
@@ -428,22 +587,22 @@ function Dashboard() {
               )}
             </div>
           )}
-          
-          <span style={styles.userName}>👋 {user?.displayName || user?.email}</span>
-          <button onClick={() => navigate("/")} style={styles.btnSecondary}>
+
+          <span style={styles.userName}>
+            👋 {user?.displayName || user?.email}
+          </span>
+          <button onClick={() => navigate("/")} style={styles.btnOutline}>
             Home
           </button>
-          <button onClick={handleLogout} style={styles.btnDanger}>
+          <button onClick={handleLogout} style={styles.btnPrimary}>
             Logout
           </button>
         </div>
       </div>
 
-      {/* Show different content based on role */}
+      {/* ───────── CONTENT ───────── */}
       {userRole === "admin" ? (
-        // ============ ADMIN VIEW ============
         <div>
-          {/* Admin Tabs */}
           <div style={styles.tabs}>
             <button
               onClick={() => {
@@ -452,9 +611,9 @@ function Dashboard() {
               }}
               style={{
                 ...styles.tabButton,
-                background: activeTab === "inquiries" ? "#e25822" : "transparent",
-                color: activeTab === "inquiries" ? "#fff" : "#333",
-                position: "relative",
+                ...(activeTab === "inquiries"
+                  ? styles.tabButtonActive
+                  : styles.tabButtonInactive),
               }}
             >
               💬 Inquiries
@@ -469,8 +628,9 @@ function Dashboard() {
               }}
               style={{
                 ...styles.tabButton,
-                background: activeTab === "admin" ? "#e25822" : "transparent",
-                color: activeTab === "admin" ? "#fff" : "#333",
+                ...(activeTab === "admin"
+                  ? styles.tabButtonActive
+                  : styles.tabButtonInactive),
               }}
             >
               🛠️ Admin Panel
@@ -482,16 +642,17 @@ function Dashboard() {
               }}
               style={{
                 ...styles.tabButton,
-                background: activeTab === "stats" ? "#e25822" : "transparent",
-                color: activeTab === "stats" ? "#fff" : "#333",
+                ...(activeTab === "stats"
+                  ? styles.tabButtonActive
+                  : styles.tabButtonInactive),
               }}
             >
               📊 Statistics
             </button>
           </div>
 
-          {/* Admin Content */}
           <div>
+            {/* ── INQUIRIES TAB ── */}
             {activeTab === "inquiries" && (
               <div>
                 <h2 style={styles.sectionTitle}>💬 Customer Inquiries</h2>
@@ -507,14 +668,18 @@ function Dashboard() {
                             key={msg.id}
                             style={{
                               ...styles.messageWrapper,
-                              justifyContent: msg.role === "admin" ? "flex-end" : "flex-start",
+                              justifyContent:
+                                msg.role === "admin"
+                                  ? "flex-end"
+                                  : "flex-start",
                             }}
                           >
                             <span
                               style={{
                                 ...styles.messageBubble,
-                                background: msg.role === "admin" ? "#e25822" : "#eee",
-                                color: msg.role === "admin" ? "#fff" : "#000",
+                                ...(msg.role === "admin"
+                                  ? styles.messageBubbleAdmin
+                                  : styles.messageBubbleUser),
                               }}
                             >
                               <strong>{msg.sender}:</strong> {msg.text}
@@ -523,7 +688,12 @@ function Dashboard() {
                         ))}
                       </div>
                       <button
-                        onClick={() => setSelectedVehicle({ id: vehicleId, name: vehicleName })}
+                        onClick={() =>
+                          setSelectedVehicle({
+                            id: vehicleId,
+                            name: vehicleName,
+                          })
+                        }
                         style={styles.replyButton}
                       >
                         Reply to this inquiry
@@ -534,60 +704,97 @@ function Dashboard() {
               </div>
             )}
 
+            {/* ── ADMIN TAB ── */}
             {activeTab === "admin" && (
               <div>
-                <h2 style={styles.sectionTitle}>🛠️ Manage Vehicles</h2>
+                <h2 style={styles.sectionTitle}>
+                  🛠️ {editingVehicle ? "Edit Vehicle" : "Manage Vehicles"}
+                </h2>
 
-                {/* Add Vehicle Form */}
                 <div style={styles.formContainer}>
-                  <h3>Add New Vehicle</h3>
+                  <h3 style={styles.formTitle}>
+                    {editingVehicle
+                      ? `✏️ Editing: ${editingVehicle.name}`
+                      : "➕ Add New Vehicle"}
+                  </h3>
+
+                  {editingVehicle && (
+                    <div style={styles.editBanner}>
+                      You are editing an existing vehicle. Changes will update
+                      the listing immediately.
+                    </div>
+                  )}
+
                   <div style={styles.formGrid}>
                     <input
                       placeholder="Vehicle Name"
                       value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, name: e.target.value })
+                      }
                       style={styles.formInput}
                     />
                     <input
-                      placeholder="Price ($)"
-                      value={form.price}
-                      onChange={(e) => setForm({ ...form, price: e.target.value })}
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="Price (LKR)"
+                      value={formatPriceInput(form.price)}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          price: parsePriceValue(e.target.value),
+                        })
+                      }
                       style={styles.formInput}
                     />
                     <input
                       placeholder="Year"
                       value={form.year}
-                      onChange={(e) => setForm({ ...form, year: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, year: e.target.value })
+                      }
                       style={styles.formInput}
                     />
                     <input
                       placeholder="Mileage (km)"
                       value={form.mileage}
-                      onChange={(e) => setForm({ ...form, mileage: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, mileage: e.target.value })
+                      }
                       style={styles.formInput}
                     />
                     <input
                       placeholder="Color"
                       value={form.color}
-                      onChange={(e) => setForm({ ...form, color: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, color: e.target.value })
+                      }
                       style={styles.formInput}
                     />
                     <input
                       placeholder="🔮 3D Model URL (optional)"
                       value={form.modelUrl || ""}
-                      onChange={(e) => setForm({ ...form, modelUrl: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, modelUrl: e.target.value })
+                      }
                       style={styles.formInput}
                     />
                     <textarea
                       placeholder="Description"
                       value={form.description}
-                      onChange={(e) => setForm({ ...form, description: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, description: e.target.value })
+                      }
                       style={styles.formTextarea}
                     />
                   </div>
 
                   <div style={styles.imageUpload}>
-                    <label style={styles.imageLabel}>Upload Car Image:</label>
+                    <label style={styles.imageLabel}>
+                      {editingVehicle
+                        ? "Replace Image (optional — leave empty to keep current)"
+                        : "Upload Car Image:"}
+                    </label>
                     <input
                       type="file"
                       accept="image/*"
@@ -595,43 +802,94 @@ function Dashboard() {
                       style={styles.fileInput}
                     />
                     {imagePreview && (
-                      <img src={imagePreview} alt="Preview" style={styles.imagePreview} />
+                      <div>
+                        <img
+                          src={imagePreview}
+                          alt="Preview"
+                          style={styles.imagePreview}
+                        />
+                        {editingVehicle && !imageFile && (
+                          <p style={styles.imageNote}>
+                            (Current image — pick a new file to replace)
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
 
-                  <button
-                    onClick={handleAddVehicle}
-                    disabled={uploading}
-                    style={{
-                      ...styles.btnPrimary,
-                      opacity: uploading ? 0.7 : 1,
-                      cursor: uploading ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    {uploading ? "Uploading..." : "Add Vehicle"}
-                  </button>
+                  <div style={styles.formActions}>
+                    {editingVehicle ? (
+                      <>
+                        <button
+                          onClick={handleUpdateVehicle}
+                          disabled={uploading}
+                          style={{
+                            ...styles.btnPrimary,
+                            opacity: uploading ? 0.7 : 1,
+                            cursor: uploading ? "not-allowed" : "pointer",
+                          }}
+                        >
+                          {uploading ? "Saving..." : "💾 Save Changes"}
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          disabled={uploading}
+                          style={styles.btnOutline}
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={handleAddVehicle}
+                        disabled={uploading}
+                        style={{
+                          ...styles.btnPrimary,
+                          opacity: uploading ? 0.7 : 1,
+                          cursor: uploading ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        {uploading ? "Uploading..." : "➕ Add Vehicle"}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                {/* Vehicle List */}
-                <h3>All Vehicles ({vehicles.length})</h3>
+                <h3 style={styles.subTitle}>
+                  All Vehicles ({vehicles.length})
+                </h3>
                 <div style={styles.vehicleGrid}>
                   {vehicles.map((v) => (
                     <div key={v.id} style={styles.vehicleCard}>
                       {v.image && (
-                        <img src={v.image} alt={v.name} style={styles.vehicleImage} />
+                        <img
+                          src={v.image}
+                          alt={v.name}
+                          style={styles.vehicleImage}
+                        />
                       )}
                       <h4 style={styles.vehicleName}>{v.name}</h4>
-                      <p style={styles.vehiclePrice}>💰 ${v.price}</p>
+                      <p style={styles.vehiclePrice}>
+                        💰 {formatLKR(v.price)}
+                      </p>
                       <p style={styles.vehicleYear}>📅 {v.year}</p>
                       {v.modelUrl && (
-                        <p style={styles.vehicleModel}>🔮 3D Model Available</p>
+                        <p style={styles.vehicleModel}>
+                          🔮 3D Model Available
+                        </p>
                       )}
                       <div style={styles.vehicleActions}>
                         <button
                           onClick={() => setSelectedVehicle(v)}
                           style={styles.btnSmall}
                         >
-                          💬 Messages
+                          💬
+                        </button>
+                        <button
+                          onClick={() => handleStartEdit(v)}
+                          style={styles.btnEditSmall}
+                        >
+                          ✏️ Edit
                         </button>
                         <button
                           onClick={() => handleDeleteVehicle(v.id)}
@@ -646,41 +904,60 @@ function Dashboard() {
               </div>
             )}
 
+            {/* ── STATS TAB ── */}
             {activeTab === "stats" && (
               <div>
                 <h2 style={styles.sectionTitle}>📊 Statistics</h2>
                 <div style={styles.statsGrid}>
-                  <div 
-                    style={styles.statCard} 
+                  <div
+                    style={styles.statCard}
                     onClick={() => setActiveTab("admin")}
-                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.transform = "scale(1.05)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.transform = "scale(1)")
+                    }
                   >
                     <h2 style={styles.statNumber}>{stats.vehicles}</h2>
                     <p style={styles.statLabel}>🚗 Total Vehicles</p>
-                    <p style={styles.statHint}>Click to manage vehicles →</p>
+                    <p style={styles.statHint}>
+                      Click to manage vehicles →
+                    </p>
                   </div>
 
-                  <div 
-                    style={styles.statCard} 
+                  <div
+                    style={styles.statCard}
                     onClick={() => setActiveTab("inquiries")}
-                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.transform = "scale(1.05)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.transform = "scale(1)")
+                    }
                   >
                     <h2 style={styles.statNumber}>{stats.messages}</h2>
                     <p style={styles.statLabel}>💬 Total Inquiries</p>
-                    <p style={styles.statHint}>Click to view inquiries →</p>
+                    <p style={styles.statHint}>
+                      Click to view inquiries →
+                    </p>
                   </div>
 
-                  <div 
-                    style={styles.statCard} 
+                  <div
+                    style={styles.statCard}
                     onClick={() => setActiveTab("inquiries")}
-                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.transform = "scale(1.05)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.transform = "scale(1)")
+                    }
                   >
                     <h2 style={styles.statNumber}>{threads.length}</h2>
                     <p style={styles.statLabel}>💬 Active Inquiries</p>
-                    <p style={styles.statHint}>Click to view inquiries →</p>
+                    <p style={styles.statHint}>
+                      Click to view inquiries →
+                    </p>
                   </div>
                 </div>
               </div>
@@ -688,12 +965,14 @@ function Dashboard() {
           </div>
         </div>
       ) : (
-        // ============ USER VIEW ============
+        // ═══════════ USER VIEW ═══════════
         <div>
           <h2 style={styles.sectionTitle}>💬 My Inquiries</h2>
           {threads.length === 0 ? (
             <div style={styles.emptyState}>
-              <p style={styles.emptyText}>You haven't messaged about any vehicles yet.</p>
+              <p style={styles.emptyText}>
+                You haven't messaged about any vehicles yet.
+              </p>
               <button onClick={() => navigate("/")} style={styles.btnPrimary}>
                 Browse Vehicles
               </button>
@@ -717,14 +996,16 @@ function Dashboard() {
                         key={msg.id}
                         style={{
                           ...styles.messageWrapper,
-                          justifyContent: msg.role === "admin" ? "flex-end" : "flex-start",
+                          justifyContent:
+                            msg.role === "admin" ? "flex-end" : "flex-start",
                         }}
                       >
                         <span
                           style={{
                             ...styles.messageBubble,
-                            background: msg.role === "admin" ? "#e25822" : "#eee",
-                            color: msg.role === "admin" ? "#fff" : "#000",
+                            ...(msg.role === "admin"
+                              ? styles.messageBubbleAdmin
+                              : styles.messageBubbleUser),
                           }}
                         >
                           <strong>{msg.sender}:</strong> {msg.text}
@@ -739,11 +1020,13 @@ function Dashboard() {
         </div>
       )}
 
-      {/* Reply Modal */}
+      {/* ───────── REPLY MODAL ───────── */}
       {selectedVehicle && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalContent}>
-            <h2 style={styles.modalTitle}>💬 Messages: {selectedVehicle.name}</h2>
+            <h2 style={styles.modalTitle}>
+              💬 Messages: {selectedVehicle.name}
+            </h2>
             <div style={styles.modalMessages}>
               {vehicleMessages.length === 0 && (
                 <p style={styles.noMessages}>No messages yet.</p>
@@ -753,14 +1036,16 @@ function Dashboard() {
                   key={msg.id}
                   style={{
                     ...styles.messageWrapper,
-                    justifyContent: msg.role === "admin" ? "flex-end" : "flex-start",
+                    justifyContent:
+                      msg.role === "admin" ? "flex-end" : "flex-start",
                   }}
                 >
                   <span
                     style={{
                       ...styles.messageBubble,
-                      background: msg.role === "admin" ? "#e25822" : "#eee",
-                      color: msg.role === "admin" ? "#fff" : "#000",
+                      ...(msg.role === "admin"
+                        ? styles.messageBubbleAdmin
+                        : styles.messageBubbleUser),
                     }}
                   >
                     <strong>{msg.sender}:</strong> {msg.text}
@@ -769,19 +1054,18 @@ function Dashboard() {
               ))}
             </div>
             {userRole === "admin" && (
-              <>
-                <div style={styles.modalInputContainer}>
-                  <input
-                    placeholder="Type your reply..."
-                    value={reply}
-                    onChange={(e) => setReply(e.target.value)}
-                    style={styles.modalInput}
-                  />
-                  <button onClick={handleReply} style={styles.btnPrimary}>
-                    Reply
-                  </button>
-                </div>
-              </>
+              <div style={styles.modalInputContainer}>
+                <input
+                  placeholder="Type your reply..."
+                  value={reply}
+                  onChange={(e) => setReply(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleReply()}
+                  style={styles.modalInput}
+                />
+                <button onClick={handleReply} style={styles.btnPrimary}>
+                  Reply
+                </button>
+              </div>
             )}
             <button
               onClick={() => {
@@ -799,30 +1083,48 @@ function Dashboard() {
   );
 }
 
+/* ────────────── STYLES ────────────── */
 const styles = {
   container: {
-    padding: "20px",
-    fontFamily: "Arial, sans-serif",
-    maxWidth: "1200px",
+    padding: "24px 28px",
+    fontFamily: "'Segoe UI', Arial, sans-serif",
+    maxWidth: "1300px",
     margin: "0 auto",
-    backgroundColor: "#f5f5f5",
+    background: "#faf6f0",
     minHeight: "100vh",
   },
   loadingContainer: {
-    padding: "60px",
+    padding: "80px 20px",
     textAlign: "center",
-    color: "#666",
+    color: "#7a5c3a",
+    background: "#faf6f0",
+    minHeight: "100vh",
   },
+  loadingText: {
+    color: "#7a5c3a",
+    fontWeight: "600",
+  },
+  spinner: {
+    width: "40px",
+    height: "40px",
+    border: "4px solid #f3e9d2",
+    borderTop: "4px solid #b8860b",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
+    margin: "0 auto 20px",
+  },
+
   header: {
-    backgroundColor: "#fff",
-    padding: "20px",
-    borderRadius: "12px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    background: "#fffdf8",
+    padding: "20px 24px",
+    borderRadius: "16px",
+    border: "1px solid #efe6d3",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     flexWrap: "wrap",
-    gap: "10px",
+    gap: "12px",
     marginBottom: "20px",
   },
   headerLeft: {
@@ -830,14 +1132,22 @@ const styles = {
     flexDirection: "column",
   },
   logo: {
-    color: "#e25822",
+    color: "#2b1a0a",
     margin: 0,
-    fontSize: "24px",
+    fontSize: "22px",
+    fontWeight: "700",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  logoMark: {
+    color: "#b8860b",
+    fontWeight: "300",
   },
   roleText: {
-    margin: "5px 0 0 0",
-    color: "#666",
-    fontSize: "14px",
+    margin: "6px 0 0 0",
+    color: "#8a7a5c",
+    fontSize: "13px",
   },
   headerActions: {
     display: "flex",
@@ -847,70 +1157,79 @@ const styles = {
     position: "relative",
   },
   userName: {
-    color: "#555",
-    fontSize: "14px",
+    color: "#7a5c3a",
+    fontSize: "13px",
+    maxWidth: "180px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   btnPrimary: {
-    padding: "10px 20px",
-    backgroundColor: "#e25822",
+    padding: "9px 18px",
+    background: "linear-gradient(135deg, #b8860b 0%, #8b0000 100%)",
     color: "#fff",
     border: "none",
     borderRadius: "8px",
     cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "bold",
+    fontSize: "13px",
+    fontWeight: "600",
   },
-  btnSecondary: {
-    padding: "8px 16px",
-    backgroundColor: "#333",
-    color: "#fff",
-    border: "none",
+  btnOutline: {
+    padding: "9px 18px",
+    background: "#fff",
+    color: "#8b0000",
+    border: "1.5px solid #d4a017",
     borderRadius: "8px",
     cursor: "pointer",
-    fontSize: "14px",
+    fontSize: "13px",
+    fontWeight: "600",
   },
   btnDanger: {
-    padding: "8px 16px",
-    backgroundColor: "#dc3545",
+    padding: "9px 18px",
+    background: "#8b0000",
     color: "#fff",
     border: "none",
     borderRadius: "8px",
     cursor: "pointer",
-    fontSize: "14px",
+    fontSize: "13px",
+    fontWeight: "600",
   },
+
   notificationWrapper: {
     position: "relative",
   },
   notificationBell: {
     position: "relative",
-    fontSize: "24px",
+    fontSize: "22px",
     background: "none",
     border: "none",
     cursor: "pointer",
-    padding: "5px 10px",
+    padding: "6px 10px",
   },
   notificationBadge: {
     position: "absolute",
-    top: "-5px",
-    right: "-5px",
-    backgroundColor: "#dc3545",
+    top: "-2px",
+    right: "-2px",
+    backgroundColor: "#8b0000",
     color: "#fff",
     borderRadius: "50%",
     padding: "2px 8px",
-    fontSize: "12px",
+    fontSize: "11px",
+    fontWeight: "700",
     minWidth: "18px",
     textAlign: "center",
   },
   notificationDropdown: {
     position: "absolute",
-    top: "40px",
+    top: "44px",
     right: "0",
-    width: "350px",
-    maxHeight: "400px",
+    width: "360px",
+    maxHeight: "420px",
     overflowY: "auto",
-    backgroundColor: "#fff",
+    backgroundColor: "#fffdf8",
     borderRadius: "12px",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+    border: "1px solid #efe6d3",
+    boxShadow: "0 8px 32px rgba(139,0,0,0.15)",
     zIndex: 1000,
     padding: "10px",
   },
@@ -919,164 +1238,233 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     padding: "10px",
-    borderBottom: "1px solid #eee",
-    fontWeight: "bold",
+    borderBottom: "1px solid #efe6d3",
+    fontWeight: "700",
+    color: "#2b1a0a",
   },
   markAllRead: {
     background: "none",
     border: "none",
-    color: "#e25822",
+    color: "#8b0000",
     cursor: "pointer",
     fontSize: "12px",
+    fontWeight: "600",
   },
   noNotifications: {
     textAlign: "center",
-    color: "#999",
+    color: "#a08a63",
     padding: "20px",
   },
   notificationItem: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "10px",
+    padding: "12px",
     borderRadius: "8px",
-    marginBottom: "5px",
+    marginBottom: "6px",
     cursor: "pointer",
-    transition: "background 0.3s",
+    transition: "background 0.2s",
+    border: "1px solid transparent",
   },
   notificationContent: {
     flex: 1,
   },
+  notificationTitle: {
+    color: "#2b1a0a",
+    fontSize: "14px",
+  },
   notificationMessage: {
     margin: "5px 0",
-    fontSize: "14px",
-    color: "#333",
+    fontSize: "13px",
+    color: "#6b5636",
   },
   notificationTime: {
     fontSize: "11px",
-    color: "#999",
+    color: "#a08a63",
   },
   unreadDot: {
     width: "10px",
     height: "10px",
     borderRadius: "50%",
-    backgroundColor: "#e25822",
+    backgroundColor: "#8b0000",
     flexShrink: 0,
     marginLeft: "10px",
   },
+
   tabs: {
     display: "flex",
     gap: "10px",
     marginBottom: "20px",
-    backgroundColor: "#fff",
-    padding: "10px",
+    backgroundColor: "#fffdf8",
+    padding: "8px",
     borderRadius: "12px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    border: "1px solid #efe6d3",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
     position: "relative",
+    flexWrap: "wrap",
   },
   tabButton: {
-    padding: "10px 24px",
+    padding: "10px 22px",
     border: "none",
     borderRadius: "8px",
     cursor: "pointer",
     fontSize: "14px",
-    fontWeight: "bold",
+    fontWeight: "700",
     transition: "all 0.3s",
     position: "relative",
   },
+  tabButtonActive: {
+    background: "linear-gradient(135deg, #b8860b 0%, #8b0000 100%)",
+    color: "#fff",
+  },
+  tabButtonInactive: {
+    background: "transparent",
+    color: "#6b5636",
+  },
   tabBadge: {
     position: "absolute",
-    top: "-8px",
-    right: "-8px",
-    background: "#dc3545",
+    top: "-6px",
+    right: "-6px",
+    background: "#8b0000",
     color: "#fff",
     borderRadius: "50%",
     padding: "2px 8px",
-    fontSize: "12px",
+    fontSize: "11px",
+    fontWeight: "700",
     minWidth: "20px",
     textAlign: "center",
   },
+
   sectionTitle: {
     marginTop: 0,
-    color: "#333",
+    marginBottom: "16px",
+    color: "#2b1a0a",
+    fontSize: "20px",
+    fontWeight: "700",
   },
-  emptyState: {
-    padding: "40px",
+  subTitle: {
+    color: "#2b1a0a",
+    fontSize: "16px",
+    fontWeight: "700",
+    marginBottom: "12px",
+  },
+  noData: {
+    color: "#a08a63",
     textAlign: "center",
-    backgroundColor: "#fff",
+    padding: "40px 20px",
+    background: "#fffdf8",
     borderRadius: "12px",
-    border: "2px dashed #ddd",
+    border: "1px dashed #efe6d3",
+  },
+
+  emptyState: {
+    padding: "48px 24px",
+    textAlign: "center",
+    backgroundColor: "#fffdf8",
+    borderRadius: "16px",
+    border: "2px dashed #efe6d3",
   },
   emptyText: {
-    fontSize: "18px",
-    color: "#aaa",
-  },
-  threadCard: {
-    backgroundColor: "#fff",
-    borderRadius: "12px",
-    padding: "20px",
+    fontSize: "16px",
+    color: "#8a7a5c",
     marginBottom: "20px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+  },
+
+  threadCard: {
+    backgroundColor: "#fffdf8",
+    borderRadius: "14px",
+    padding: "20px",
+    marginBottom: "18px",
+    border: "1px solid #efe6d3",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
   },
   threadTitle: {
-    color: "#e25822",
+    color: "#8b0000",
     cursor: "pointer",
     marginTop: 0,
     display: "flex",
     alignItems: "center",
     gap: "10px",
+    fontSize: "16px",
+    fontWeight: "700",
   },
   viewLink: {
     fontSize: "12px",
-    backgroundColor: "#eee",
-    padding: "2px 10px",
+    backgroundColor: "#f5ecd8",
+    padding: "3px 12px",
     borderRadius: "12px",
-    color: "#666",
+    color: "#6b5636",
+    fontWeight: "600",
   },
   messageContainer: {
-    maxHeight: "250px",
+    maxHeight: "260px",
     overflowY: "auto",
-    border: "1px solid #f0f0f0",
-    borderRadius: "8px",
-    padding: "10px",
-    backgroundColor: "#fafafa",
+    border: "1px solid #efe6d3",
+    borderRadius: "10px",
+    padding: "14px",
+    backgroundColor: "#faf6f0",
   },
   messageWrapper: {
     display: "flex",
-    marginBottom: "8px",
+    marginBottom: "10px",
   },
   messageBubble: {
-    padding: "8px 14px",
-    borderRadius: "15px",
+    padding: "10px 16px",
+    borderRadius: "16px",
     maxWidth: "80%",
     wordWrap: "break-word",
     fontSize: "14px",
+    lineHeight: "1.5",
+  },
+  messageBubbleAdmin: {
+    background: "linear-gradient(135deg, #b8860b 0%, #8b0000 100%)",
+    color: "#fff",
+  },
+  messageBubbleUser: {
+    background: "#f5ecd8",
+    color: "#2b1a0a",
   },
   noMessages: {
-    color: "#aaa",
+    color: "#a08a63",
     textAlign: "center",
     padding: "20px",
-  },
-  noData: {
-    color: "#aaa",
-    textAlign: "center",
-    padding: "20px",
+    fontStyle: "italic",
   },
   replyButton: {
-    marginTop: "10px",
-    padding: "8px 16px",
-    backgroundColor: "#333",
+    marginTop: "12px",
+    padding: "10px 18px",
+    background: "linear-gradient(135deg, #b8860b 0%, #8b0000 100%)",
     color: "#fff",
     border: "none",
-    borderRadius: "6px",
+    borderRadius: "8px",
     cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: "600",
   },
+
   formContainer: {
-    backgroundColor: "#fff",
-    borderRadius: "12px",
-    padding: "20px",
-    marginBottom: "30px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    backgroundColor: "#fffdf8",
+    borderRadius: "14px",
+    padding: "24px",
+    marginBottom: "28px",
+    border: "1px solid #efe6d3",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+  },
+  formTitle: {
+    marginTop: 0,
+    color: "#2b1a0a",
+    fontSize: "17px",
+    fontWeight: "700",
+  },
+  editBanner: {
+    background: "#fff3e0",
+    border: "1px solid #d4a017",
+    color: "#8b0000",
+    padding: "10px 14px",
+    borderRadius: "8px",
+    fontSize: "13px",
+    marginBottom: "16px",
+    fontWeight: "600",
   },
   formGrid: {
     display: "grid",
@@ -1084,184 +1472,238 @@ const styles = {
     gap: "12px",
   },
   formInput: {
-    padding: "10px",
-    borderRadius: "8px",
-    border: "1px solid #ddd",
+    padding: "12px 14px",
+    borderRadius: "10px",
+    border: "1.5px solid #efe6d3",
     fontSize: "14px",
+    color: "#2b1a0a",
+    background: "#fff",
+    outline: "none",
   },
   formTextarea: {
-    padding: "10px",
-    borderRadius: "8px",
-    border: "1px solid #ddd",
+    padding: "12px 14px",
+    borderRadius: "10px",
+    border: "1.5px solid #efe6d3",
     fontSize: "14px",
+    color: "#2b1a0a",
+    background: "#fff",
+    outline: "none",
     gridColumn: "1 / -1",
-    minHeight: "60px",
+    minHeight: "80px",
+    resize: "vertical",
   },
   imageUpload: {
-    marginTop: "15px",
-    marginBottom: "15px",
+    marginTop: "18px",
+    marginBottom: "18px",
   },
   imageLabel: {
     display: "block",
     marginBottom: "8px",
-    fontWeight: "bold",
+    fontWeight: "600",
+    color: "#2b1a0a",
+    fontSize: "14px",
   },
   fileInput: {
     padding: "8px",
+    fontSize: "13px",
+    color: "#6b5636",
   },
   imagePreview: {
-    marginTop: "10px",
-    width: "150px",
-    borderRadius: "8px",
-    border: "1px solid #ddd",
+    marginTop: "12px",
+    width: "160px",
+    borderRadius: "10px",
+    border: "1.5px solid #d4a017",
   },
+  imageNote: {
+    fontSize: "12px",
+    color: "#8a7a5c",
+    marginTop: "6px",
+    fontStyle: "italic",
+  },
+  formActions: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap",
+  },
+
   vehicleGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-    gap: "15px",
+    gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))",
+    gap: "16px",
   },
   vehicleCard: {
-    backgroundColor: "#fff",
-    borderRadius: "10px",
-    padding: "15px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    backgroundColor: "#fffdf8",
+    borderRadius: "12px",
+    padding: "16px",
+    border: "1px solid #efe6d3",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
   },
   vehicleImage: {
     width: "100%",
     height: "150px",
     objectFit: "cover",
     borderRadius: "8px",
-    marginBottom: "8px",
+    marginBottom: "10px",
   },
   vehicleName: {
-    margin: "5px 0",
+    margin: "6px 0",
     fontSize: "16px",
+    fontWeight: "700",
+    color: "#2b1a0a",
   },
   vehiclePrice: {
-    margin: "3px 0",
-    color: "#e25822",
-    fontWeight: "bold",
+    margin: "4px 0",
+    color: "#b8860b",
+    fontWeight: "700",
+    fontSize: "14px",
   },
   vehicleYear: {
-    margin: "3px 0",
-    fontSize: "14px",
-    color: "#666",
+    margin: "4px 0",
+    fontSize: "13px",
+    color: "#7a5c3a",
   },
   vehicleModel: {
-    margin: "3px 0",
+    margin: "4px 0",
     fontSize: "12px",
-    color: "#28a745",
-    fontWeight: "bold",
+    color: "#8b0000",
+    fontWeight: "700",
   },
   vehicleActions: {
     display: "flex",
-    gap: "5px",
-    marginTop: "8px",
+    gap: "6px",
+    marginTop: "10px",
   },
   btnSmall: {
     flex: 1,
-    padding: "6px 10px",
-    backgroundColor: "#333",
+    padding: "8px 12px",
+    background: "linear-gradient(135deg, #b8860b 0%, #8b0000 100%)",
     color: "#fff",
     border: "none",
-    borderRadius: "6px",
+    borderRadius: "8px",
     cursor: "pointer",
     fontSize: "12px",
+    fontWeight: "600",
+  },
+  btnEditSmall: {
+    flex: 1,
+    padding: "8px 12px",
+    background: "#d4a017",
+    color: "#2b1a0a",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: "700",
   },
   btnDangerSmall: {
     flex: 1,
-    padding: "6px 10px",
-    backgroundColor: "#dc3545",
+    padding: "8px 12px",
+    background: "#8b0000",
     color: "#fff",
     border: "none",
-    borderRadius: "6px",
+    borderRadius: "8px",
     cursor: "pointer",
     fontSize: "12px",
+    fontWeight: "600",
   },
+
   statsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
     gap: "20px",
   },
   statCard: {
-    backgroundColor: "#fff",
-    borderRadius: "12px",
-    padding: "25px",
+    backgroundColor: "#fffdf8",
+    borderRadius: "14px",
+    padding: "28px",
     textAlign: "center",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    border: "1px solid #efe6d3",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
     cursor: "pointer",
     transition: "transform 0.3s ease, box-shadow 0.3s ease",
   },
   statNumber: {
     margin: 0,
-    color: "#e25822",
-    fontSize: "36px",
+    color: "#b8860b",
+    fontSize: "38px",
+    fontWeight: "800",
   },
   statLabel: {
-    margin: "8px 0 0 0",
-    color: "#666",
+    margin: "10px 0 0 0",
+    color: "#6b5636",
+    fontWeight: "600",
   },
   statHint: {
-    margin: "8px 0 0 0",
-    color: "#999",
+    margin: "10px 0 0 0",
+    color: "#a08a63",
     fontSize: "12px",
     fontStyle: "italic",
   },
+
   modalOverlay: {
     position: "fixed",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(43,26,10,0.6)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1000,
+    padding: "20px",
   },
   modalContent: {
-    backgroundColor: "#fff",
-    padding: "30px",
-    borderRadius: "12px",
-    maxWidth: "600px",
-    width: "90%",
-    maxHeight: "80vh",
+    backgroundColor: "#fffdf8",
+    padding: "28px",
+    borderRadius: "16px",
+    maxWidth: "620px",
+    width: "100%",
+    maxHeight: "85vh",
     overflow: "auto",
+    border: "1px solid #efe6d3",
+    boxShadow: "0 20px 60px rgba(139,0,0,0.3)",
   },
   modalTitle: {
-    color: "#e25822",
+    color: "#8b0000",
     marginTop: 0,
+    fontSize: "20px",
+    fontWeight: "700",
   },
   modalMessages: {
-    border: "1px solid #ddd",
+    border: "1px solid #efe6d3",
     borderRadius: "10px",
-    padding: "15px",
-    height: "250px",
+    padding: "16px",
+    height: "280px",
     overflowY: "auto",
-    backgroundColor: "#f9f9f9",
-    marginBottom: "10px",
+    backgroundColor: "#faf6f0",
+    marginBottom: "14px",
   },
   modalInputContainer: {
     display: "flex",
     gap: "10px",
-    marginBottom: "10px",
+    marginBottom: "12px",
   },
   modalInput: {
     flex: 1,
-    padding: "10px",
-    borderRadius: "8px",
-    border: "1px solid #ccc",
+    padding: "12px 14px",
+    borderRadius: "10px",
+    border: "1.5px solid #efe6d3",
     fontSize: "14px",
+    color: "#2b1a0a",
+    background: "#fff",
+    outline: "none",
   },
   modalClose: {
     width: "100%",
-    padding: "10px",
-    backgroundColor: "#666",
+    padding: "12px",
+    backgroundColor: "#6b5636",
     color: "#fff",
     border: "none",
-    borderRadius: "8px",
+    borderRadius: "10px",
     cursor: "pointer",
     fontSize: "14px",
+    fontWeight: "600",
   },
 };
 
