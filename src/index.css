@@ -1,3 +1,7 @@
+/* ═══════════════════════════════════════════
+   Phoenix Cars — Global Styles
+   ═══════════════════════════════════════════ */
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -5,11 +9,87 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #ffe8d6;
+  background-color: #faf6f0;
   min-height: 100vh;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* ─── Better box model ─── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* ─── Form elements inherit font ─── */
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+/* ─── Scrollbar (subtle, gold-tinted) ─── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f5ecd8;
+}
+::-webkit-scrollbar-thumb {
+  background: #d4a017;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #b8860b;
+}
+
+/* ═══════════════════════════════════════════
+   Login / Register — Slide Animation
+   ═══════════════════════════════════════════ */
+@keyframes fadeSlide {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Loading spinner
+   ═══════════════════════════════════════════ */
+@keyframes spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ═══════════════════════════════════════════
+   Responsive
+   ═══════════════════════════════════════════ */
+
+/* Hide the login/register left slideshow on mobile */
+@media (max-width: 900px) {
+  .login-left-panel {
+    display: none !important;
+  }
+}
+
+/* Stack the Home hero on mobile */
+@media (max-width: 900px) {
+  .hero-grid {
+    grid-template-columns: 1fr !important;
+    text-align: center !important;
+  }
 }
