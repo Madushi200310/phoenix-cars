@@ -57,13 +57,18 @@ function Register() {
   const handleRegister = async () => {
     if (!name.trim()) return setError("Please enter your name.");
     if (!email.trim()) return setError("Please enter your email.");
-    if (password.length < 6) return setError("Password must be at least 6 characters.");
+    if (password.length < 6)
+      return setError("Password must be at least 6 characters.");
 
     setLoading(true);
     setError("");
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
       await updateProfile(userCredential.user, { displayName: name });
 
       await setDoc(doc(db, "users", userCredential.user.uid), {
@@ -230,7 +235,8 @@ const styles = {
   /* ── LEFT ── */
   leftPanel: {
     flex: 1,
-    background: "linear-gradient(135deg, #3b3bff 0%, #2929cc 60%, #1e1ea8 100%)",
+    background:
+      "linear-gradient(135deg, #2b1a0a 0%, #4a1e0a 55%, #8b0000 100%)",
     color: "#fff",
     display: "flex",
     flexDirection: "column",
@@ -257,7 +263,7 @@ const styles = {
   },
   logoMark: {
     fontSize: "36px",
-    color: "#fff",
+    color: "#e0b84c",
     fontWeight: "300",
     lineHeight: 1,
   },
@@ -265,6 +271,7 @@ const styles = {
     fontSize: "20px",
     fontWeight: "600",
     letterSpacing: "0.5px",
+    color: "#faf3e0",
   },
   slideContent: {
     animation: "fadeSlide 0.6s ease-out",
@@ -275,6 +282,7 @@ const styles = {
     fontWeight: "800",
     margin: "0 0 12px 0",
     lineHeight: "1.15",
+    color: "#faf3e0",
   },
   wave: {
     display: "inline-block",
@@ -283,12 +291,12 @@ const styles = {
     fontSize: "22px",
     fontWeight: "600",
     margin: "0 0 18px 0",
-    opacity: 0.95,
+    color: "#e0b84c",
   },
   heroDescription: {
     fontSize: "16px",
     lineHeight: "1.6",
-    opacity: 0.85,
+    color: "#e8d9b8",
     margin: 0,
   },
   dots: {
@@ -303,19 +311,19 @@ const styles = {
     height: "10px",
     borderRadius: "50%",
     border: "none",
-    background: "rgba(255,255,255,0.35)",
+    background: "rgba(224,184,76,0.35)",
     cursor: "pointer",
     padding: 0,
     transition: "all 0.3s",
   },
   dotActive: {
-    background: "#fff",
+    background: "#e0b84c",
     width: "28px",
     borderRadius: "6px",
   },
   copyright: {
     fontSize: "12px",
-    opacity: 0.7,
+    color: "#c9b58a",
     margin: 0,
     position: "relative",
     zIndex: 2,
@@ -324,7 +332,7 @@ const styles = {
   /* ── RIGHT ── */
   rightPanel: {
     flex: 1,
-    background: "#fff",
+    background: "#fffdf8",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -337,25 +345,25 @@ const styles = {
   brandTop: {
     fontSize: "22px",
     fontWeight: "700",
-    color: "#111",
+    color: "#b8860b",
     marginTop: 0,
     marginBottom: "48px",
   },
   welcomeTitle: {
     fontSize: "28px",
     fontWeight: "700",
-    color: "#111",
+    color: "#2b1a0a",
     margin: "0 0 10px 0",
   },
   welcomeSubtitle: {
     fontSize: "14px",
-    color: "#666",
+    color: "#7a5c3a",
     lineHeight: "1.6",
     margin: "0 0 28px 0",
   },
   errorMessage: {
     backgroundColor: "#fff3f3",
-    color: "#dc3545",
+    color: "#8b0000",
     padding: "10px 14px",
     borderRadius: "8px",
     marginBottom: "18px",
@@ -367,12 +375,12 @@ const styles = {
     padding: "14px 4px",
     marginBottom: "22px",
     border: "none",
-    borderBottom: "1.5px solid #ddd",
+    borderBottom: "1.5px solid #e6d4a8",
     fontSize: "15px",
     boxSizing: "border-box",
     outline: "none",
     background: "transparent",
-    color: "#111",
+    color: "#2b1a0a",
   },
 
   /* ── Role pills ── */
@@ -383,7 +391,7 @@ const styles = {
     display: "block",
     fontSize: "12px",
     fontWeight: "600",
-    color: "#999",
+    color: "#a08a63",
     textTransform: "uppercase",
     letterSpacing: "0.5px",
     marginBottom: "10px",
@@ -395,9 +403,9 @@ const styles = {
   rolePill: {
     flex: 1,
     padding: "12px 16px",
-    background: "#f8f9fa",
-    color: "#333",
-    border: "1.5px solid #e0e0e0",
+    background: "#faf6f0",
+    color: "#6b5636",
+    border: "1.5px solid #efe6d3",
     borderRadius: "10px",
     fontSize: "14px",
     fontWeight: "600",
@@ -406,15 +414,15 @@ const styles = {
   },
   rolePillActive: {
     background: "#fff",
-    borderColor: "#e25822",
-    color: "#e25822",
-    boxShadow: "0 0 0 3px rgba(226,88,34,0.12)",
+    borderColor: "#d4a017",
+    color: "#8b0000",
+    boxShadow: "0 0 0 3px rgba(212,160,23,0.18)",
   },
 
   registerButton: {
     width: "100%",
     padding: "15px",
-    backgroundColor: "#111",
+    background: "linear-gradient(135deg, #b8860b 0%, #8b0000 100%)",
     color: "#fff",
     border: "none",
     borderRadius: "10px",
@@ -426,10 +434,10 @@ const styles = {
     textAlign: "center",
     marginTop: "28px",
     fontSize: "13px",
-    color: "#666",
+    color: "#7a5c3a",
   },
   link: {
-    color: "#e25822",
+    color: "#8b0000",
     cursor: "pointer",
     fontWeight: "600",
   },
