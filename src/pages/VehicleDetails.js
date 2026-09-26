@@ -174,7 +174,7 @@ function VehicleDetails() {
               />
             ) : (
               <div style={styles.noImage}>
-                <span style={styles.noImageIcon}>🚗</span>
+                <span style={styles.noImageIcon}></span>
                 <p>No Image Available</p>
               </div>
             )}
@@ -190,14 +190,14 @@ function VehicleDetails() {
 
           <div style={styles.specsGrid}>
             <div style={styles.specItem}>
-              <span style={styles.specIcon}>📅</span>
+              <span style={styles.specIcon}></span>
               <div>
                 <span style={styles.specLabel}>Year</span>
                 <span style={styles.specValue}>{vehicle.year || "N/A"}</span>
               </div>
             </div>
             <div style={styles.specItem}>
-              <span style={styles.specIcon}>🛣️</span>
+              <span style={styles.specIcon}></span>
               <div>
                 <span style={styles.specLabel}>Mileage</span>
                 <span style={styles.specValue}>
@@ -206,7 +206,7 @@ function VehicleDetails() {
               </div>
             </div>
             <div style={styles.specItem}>
-              <span style={styles.specIcon}>🎨</span>
+              <span style={styles.specIcon}></span>
               <div>
                 <span style={styles.specLabel}>Color</span>
                 <span style={styles.specValue}>{vehicle.color || "N/A"}</span>
@@ -215,7 +215,7 @@ function VehicleDetails() {
           </div>
 
           <div style={styles.descriptionSection}>
-            <h3 style={styles.sectionTitle}>📝 Description</h3>
+            <h3 style={styles.sectionTitle}> Description</h3>
             <p style={styles.descriptionText}>
               {vehicle.description || "No description available."}
             </p>
@@ -223,7 +223,7 @@ function VehicleDetails() {
 
           {vehicle.modelUrl && (
             <div style={styles.modelSection}>
-              <h3 style={styles.sectionTitle}>🔮 3D Model</h3>
+              <h3 style={styles.sectionTitle}> 3D Model</h3>
               <div style={styles.modelContainer}>
                 <iframe
                   src={vehicle.modelUrl}
@@ -240,13 +240,13 @@ function VehicleDetails() {
               onClick={handleRequestPurchase}
               style={styles.purchaseButton}
             >
-              ✅ Request to Buy & Track Location
+               Request to Buy & Track Location
             </button>
             <button
               onClick={() => setActiveTab("chat")}
               style={styles.chatButton}
             >
-              💬 Chat with Team
+               Chat with Team
             </button>
           </div>
         </div>
@@ -263,7 +263,7 @@ function VehicleDetails() {
               : styles.tabButtonInactive),
           }}
         >
-          📋 Details
+           Details
         </button>
         <button
           onClick={() => setActiveTab("chat")}
@@ -274,7 +274,7 @@ function VehicleDetails() {
               : styles.tabButtonInactive),
           }}
         >
-          💬 Chat
+           Chat
         </button>
         {showTracker && (
           <button
@@ -286,7 +286,7 @@ function VehicleDetails() {
                 : styles.tabButtonInactive),
             }}
           >
-            📍 Location
+             Location
           </button>
         )}
       </div>
@@ -298,28 +298,28 @@ function VehicleDetails() {
           <div style={styles.detailsTab}>
             <div style={styles.detailsGrid}>
               <div style={styles.detailCard}>
-                <span style={styles.detailCardIcon}>🚙</span>
+                <span style={styles.detailCardIcon}></span>
                 <div>
                   <p style={styles.detailCardLabel}>Vehicle Type</p>
                   <p style={styles.detailCardValue}>SUV</p>
                 </div>
               </div>
               <div style={styles.detailCard}>
-                <span style={styles.detailCardIcon}>⛽</span>
+                <span style={styles.detailCardIcon}></span>
                 <div>
                   <p style={styles.detailCardLabel}>Fuel Type</p>
                   <p style={styles.detailCardValue}>Petrol</p>
                 </div>
               </div>
               <div style={styles.detailCard}>
-                <span style={styles.detailCardIcon}>⚙️</span>
+                <span style={styles.detailCardIcon}></span>
                 <div>
                   <p style={styles.detailCardLabel}>Transmission</p>
                   <p style={styles.detailCardValue}>Automatic</p>
                 </div>
               </div>
               <div style={styles.detailCard}>
-                <span style={styles.detailCardIcon}>💺</span>
+                <span style={styles.detailCardIcon}></span>
                 <div>
                   <p style={styles.detailCardLabel}>Seats</p>
                   <p style={styles.detailCardValue}>5</p>
@@ -333,7 +333,7 @@ function VehicleDetails() {
         {activeTab === "chat" && (
           <div style={styles.chatTab}>
             <div style={styles.chatHeader}>
-              <h3 style={styles.chatTitle}>💬 Chat with Our Team</h3>
+              <h3 style={styles.chatTitle}> Chat with Our Team</h3>
               {!user && (
                 <div style={styles.loginPrompt}>
                   <p style={styles.loginPromptText}>
@@ -360,7 +360,7 @@ function VehicleDetails() {
             <div style={styles.chatMessages}>
               {messages.length === 0 && (
                 <div style={styles.noMessages}>
-                  <span style={styles.noMessagesIcon}>💬</span>
+                  <span style={styles.noMessagesIcon}></span>
                   <p>No messages yet. Ask us anything!</p>
                 </div>
               )}
@@ -413,9 +413,9 @@ function VehicleDetails() {
           <div style={styles.locationTab}>
             <div style={styles.locationHeader}>
               <h3 style={styles.locationTitle}>
-                📍 Vehicle Location - Sri Lanka
+                 Vehicle Location - Sri Lanka
               </h3>
-              <span style={styles.locationStatus}>🟢 Live Tracking</span>
+              <span style={styles.locationStatus}> Live Tracking</span>
             </div>
             <div style={styles.mapContainer}>
               <iframe
@@ -434,7 +434,7 @@ function VehicleDetails() {
             </div>
             <div style={styles.locationInfo}>
               <div style={styles.locationInfoItem}>
-                <span style={styles.locationInfoIcon}>📍</span>
+                <span style={styles.locationInfoIcon}></span>
                 <div>
                   <span style={styles.locationInfoLabel}>
                     Current Location
@@ -445,7 +445,7 @@ function VehicleDetails() {
                 </div>
               </div>
               <div style={styles.locationInfoItem}>
-                <span style={styles.locationInfoIcon}>🧭</span>
+                <span style={styles.locationInfoIcon}></span>
                 <div>
                   <span style={styles.locationInfoLabel}>Coordinates</span>
                   <span style={styles.locationInfoValue}>
@@ -455,7 +455,7 @@ function VehicleDetails() {
                 </div>
               </div>
               <div style={styles.locationInfoItem}>
-                <span style={styles.locationInfoIcon}>🚚</span>
+                <span style={styles.locationInfoIcon}></span>
                 <div>
                   <span style={styles.locationInfoLabel}>Status</span>
                   <span style={styles.locationInfoValue}>In Transit</span>

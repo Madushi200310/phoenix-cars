@@ -7,28 +7,28 @@ import { useNavigate } from "react-router-dom";
 // ─── Slideshow content (edit these to explain your app) ───
 const SLIDES = [
   {
-    icon: "🚗",
+    icon: "",
     title: "Hello Phoenix!",
     subtitle: "Find Your Dream Car",
     description:
       "Browse a curated collection of premium vehicles with detailed specs, photos, and 3D models.",
   },
   {
-    icon: "💬",
+    icon: "",
     title: "Chat Instantly",
     subtitle: "Talk to Our Team",
     description:
       "Ask questions, negotiate, and get real-time answers directly from our sales team.",
   },
   {
-    icon: "📍",
+    icon: "",
     title: "Track Live",
     subtitle: "See It In Real Time",
     description:
       "Request to buy and track your vehicle's location live across Sri Lanka.",
   },
   {
-    icon: "⚡",
+    icon: "",
     title: "Skip the Hassle",
     subtitle: "Buy Smarter, Faster",
     description:

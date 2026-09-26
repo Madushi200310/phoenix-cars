@@ -76,7 +76,7 @@ function Home() {
             {user ? (
               <>
                 <span style={styles.userName}>
-                  👋 {user.displayName || user.email}
+                   {user.displayName || user.email}
                 </span>
                 <button
                   onClick={() => navigate("/dashboard")}
@@ -124,7 +124,7 @@ function Home() {
 
           <div style={styles.heroRight}>
             <div style={styles.searchWrapper}>
-              <span style={styles.searchIcon}>🔍</span>
+              <span style={styles.searchIcon}></span>
               <input
                 type="text"
                 placeholder="Search by name, year, or price..."
@@ -159,7 +159,7 @@ function Home() {
           </div>
         ) : filteredVehicles.length === 0 ? (
           <div style={styles.noResults}>
-            <div style={styles.noResultsIcon}>🚗</div>
+            <div style={styles.noResultsIcon}></div>
             <h3 style={styles.noResultsTitle}>No vehicles found</h3>
             <p style={styles.noResultsText}>
               Try a different search term, or check back soon.
@@ -194,7 +194,7 @@ function Home() {
                     <div style={styles.noImage}>No Image</div>
                   )}
                   {vehicle.modelUrl && (
-                    <span style={styles.modelBadge}>🔮 3D</span>
+                    <span style={styles.modelBadge}> 3D</span>
                   )}
                 </div>
 
@@ -204,13 +204,13 @@ function Home() {
 
                   <div style={styles.vehicleDetails}>
                     <span style={styles.detailChip}>
-                      📅 {vehicle.year || "N/A"}
+                       {vehicle.year || "N/A"}
                     </span>
                     <span style={styles.detailChip}>
-                      🛣️ {vehicle.mileage || "N/A"} km
+                       {vehicle.mileage || "N/A"} km
                     </span>
                     <span style={styles.detailChip}>
-                      🎨 {vehicle.color || "N/A"}
+                       {vehicle.color || "N/A"}
                     </span>
                   </div>
 

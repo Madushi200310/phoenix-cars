@@ -185,11 +185,11 @@ function Dashboard() {
                   Notification.permission === "granted"
                 ) {
                   const notif = new Notification(
-                    "🔔 New Message from Customer!",
+                    " New Message from Customer!",
                     {
-                      body: `🚗 ${notification.vehicleName}\n👤 ${
+                      body: ` ${notification.vehicleName}\n👤 ${
                         notification.sender
-                      }\n💬 ${notification.message.substring(0, 80)}${
+                      }\n ${notification.message.substring(0, 80)}${
                         notification.message.length > 80 ? "..." : ""
                       }`,
                       icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🚗%3C/text%3E%3C/svg%3E",
@@ -521,7 +521,7 @@ function Dashboard() {
             <span style={styles.logoMark}>✳</span> Phoenix Cars
           </h1>
           <p style={styles.roleText}>
-            {userRole === "admin" ? "👑 Admin Dashboard" : "👤 User Dashboard"}
+            {userRole === "admin" ? " Admin Dashboard" : " User Dashboard"}
           </p>
         </div>
 
@@ -532,7 +532,7 @@ function Dashboard() {
                 onClick={() => setShowNotifications(!showNotifications)}
                 style={styles.notificationBell}
               >
-                🔔
+                
                 {unreadCount > 0 && (
                   <span style={styles.notificationBadge}>{unreadCount}</span>
                 )}
@@ -589,7 +589,7 @@ function Dashboard() {
           )}
 
           <span style={styles.userName}>
-            👋 {user?.displayName || user?.email}
+             {user?.displayName || user?.email}
           </span>
           <button onClick={() => navigate("/")} style={styles.btnOutline}>
             Home
@@ -616,7 +616,7 @@ function Dashboard() {
                   : styles.tabButtonInactive),
               }}
             >
-              💬 Inquiries
+               Inquiries
               {unreadCount > 0 && activeTab !== "inquiries" && (
                 <span style={styles.tabBadge}>{unreadCount}</span>
               )}
@@ -633,7 +633,7 @@ function Dashboard() {
                   : styles.tabButtonInactive),
               }}
             >
-              🛠️ Admin Panel
+               Admin Panel
             </button>
             <button
               onClick={() => {
@@ -647,7 +647,7 @@ function Dashboard() {
                   : styles.tabButtonInactive),
               }}
             >
-              📊 Statistics
+               Statistics
             </button>
           </div>
 
@@ -655,13 +655,13 @@ function Dashboard() {
             {/* ── INQUIRIES TAB ── */}
             {activeTab === "inquiries" && (
               <div>
-                <h2 style={styles.sectionTitle}>💬 Customer Inquiries</h2>
+                <h2 style={styles.sectionTitle}> Customer Inquiries</h2>
                 {threads.length === 0 ? (
                   <p style={styles.noData}>No customer inquiries yet.</p>
                 ) : (
                   threads.map(({ vehicleId, vehicleName }) => (
                     <div key={vehicleId} style={styles.threadCard}>
-                      <h3 style={styles.threadTitle}>🚗 {vehicleName}</h3>
+                      <h3 style={styles.threadTitle}> {vehicleName}</h3>
                       <div style={styles.messageContainer}>
                         {(messagesByVehicle[vehicleId] || []).map((msg) => (
                           <div
@@ -708,14 +708,14 @@ function Dashboard() {
             {activeTab === "admin" && (
               <div>
                 <h2 style={styles.sectionTitle}>
-                  🛠️ {editingVehicle ? "Edit Vehicle" : "Manage Vehicles"}
+                   {editingVehicle ? "Edit Vehicle" : "Manage Vehicles"}
                 </h2>
 
                 <div style={styles.formContainer}>
                   <h3 style={styles.formTitle}>
                     {editingVehicle
-                      ? `✏️ Editing: ${editingVehicle.name}`
-                      : "➕ Add New Vehicle"}
+                      ? ` Editing: ${editingVehicle.name}`
+                      : " Add New Vehicle"}
                   </h3>
 
                   {editingVehicle && (
@@ -772,7 +772,7 @@ function Dashboard() {
                       style={styles.formInput}
                     />
                     <input
-                      placeholder="🔮 3D Model URL (optional)"
+                      placeholder=" 3D Model URL (optional)"
                       value={form.modelUrl || ""}
                       onChange={(e) =>
                         setForm({ ...form, modelUrl: e.target.value })
@@ -829,7 +829,7 @@ function Dashboard() {
                             cursor: uploading ? "not-allowed" : "pointer",
                           }}
                         >
-                          {uploading ? "Saving..." : "💾 Save Changes"}
+                          {uploading ? "Saving..." : " Save Changes"}
                         </button>
                         <button
                           onClick={handleCancelEdit}
@@ -849,7 +849,7 @@ function Dashboard() {
                           cursor: uploading ? "not-allowed" : "pointer",
                         }}
                       >
-                        {uploading ? "Uploading..." : "➕ Add Vehicle"}
+                        {uploading ? "Uploading..." : " Add Vehicle"}
                       </button>
                     )}
                   </div>
@@ -870,12 +870,12 @@ function Dashboard() {
                       )}
                       <h4 style={styles.vehicleName}>{v.name}</h4>
                       <p style={styles.vehiclePrice}>
-                        💰 {formatLKR(v.price)}
+                         {formatLKR(v.price)}
                       </p>
-                      <p style={styles.vehicleYear}>📅 {v.year}</p>
+                      <p style={styles.vehicleYear}> {v.year}</p>
                       {v.modelUrl && (
                         <p style={styles.vehicleModel}>
-                          🔮 3D Model Available
+                           3D Model Available
                         </p>
                       )}
                       <div style={styles.vehicleActions}>
@@ -883,13 +883,13 @@ function Dashboard() {
                           onClick={() => setSelectedVehicle(v)}
                           style={styles.btnSmall}
                         >
-                          💬
+                          
                         </button>
                         <button
                           onClick={() => handleStartEdit(v)}
                           style={styles.btnEditSmall}
                         >
-                          ✏️ Edit
+                           Edit
                         </button>
                         <button
                           onClick={() => handleDeleteVehicle(v.id)}
@@ -907,7 +907,7 @@ function Dashboard() {
             {/* ── STATS TAB ── */}
             {activeTab === "stats" && (
               <div>
-                <h2 style={styles.sectionTitle}>📊 Statistics</h2>
+                <h2 style={styles.sectionTitle}> Statistics</h2>
                 <div style={styles.statsGrid}>
                   <div
                     style={styles.statCard}
@@ -920,7 +920,7 @@ function Dashboard() {
                     }
                   >
                     <h2 style={styles.statNumber}>{stats.vehicles}</h2>
-                    <p style={styles.statLabel}>🚗 Total Vehicles</p>
+                    <p style={styles.statLabel}> Total Vehicles</p>
                     <p style={styles.statHint}>
                       Click to manage vehicles →
                     </p>
@@ -937,7 +937,7 @@ function Dashboard() {
                     }
                   >
                     <h2 style={styles.statNumber}>{stats.messages}</h2>
-                    <p style={styles.statLabel}>💬 Total Inquiries</p>
+                    <p style={styles.statLabel}> Total Inquiries</p>
                     <p style={styles.statHint}>
                       Click to view inquiries →
                     </p>
@@ -954,7 +954,7 @@ function Dashboard() {
                     }
                   >
                     <h2 style={styles.statNumber}>{threads.length}</h2>
-                    <p style={styles.statLabel}>💬 Active Inquiries</p>
+                    <p style={styles.statLabel}> Active Inquiries</p>
                     <p style={styles.statHint}>
                       Click to view inquiries →
                     </p>
@@ -967,7 +967,7 @@ function Dashboard() {
       ) : (
         // ═══════════ USER VIEW ═══════════
         <div>
-          <h2 style={styles.sectionTitle}>💬 My Inquiries</h2>
+          <h2 style={styles.sectionTitle}> My Inquiries</h2>
           {threads.length === 0 ? (
             <div style={styles.emptyState}>
               <p style={styles.emptyText}>
@@ -984,7 +984,7 @@ function Dashboard() {
                   onClick={() => navigate(`/vehicle/${vehicleId}`)}
                   style={styles.threadTitle}
                 >
-                  🚗 {vehicleName}
+                   {vehicleName}
                   <span style={styles.viewLink}>Click to view</span>
                 </h3>
                 <div style={styles.messageContainer}>
@@ -1025,7 +1025,7 @@ function Dashboard() {
         <div style={styles.modalOverlay}>
           <div style={styles.modalContent}>
             <h2 style={styles.modalTitle}>
-              💬 Messages: {selectedVehicle.name}
+               Messages: {selectedVehicle.name}
             </h2>
             <div style={styles.modalMessages}>
               {vehicleMessages.length === 0 && (

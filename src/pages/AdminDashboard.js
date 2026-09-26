@@ -41,7 +41,7 @@ function AdminDashboard() {
   return (
     <div style={{ padding: "20px", fontFamily: "Arial" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-        <h1 style={{ color: "#e25822" }}>🔥 Admin Dashboard</h1>
+        <h1 style={{ color: "#e25822" }}> Admin Dashboard</h1>
         <div style={{ display: "flex", gap: "10px" }}>
           <button onClick={() => navigate("/admin")}
             style={{ padding: "8px 16px", background: "#333", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}>
@@ -60,11 +60,11 @@ function AdminDashboard() {
         <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
           <div style={{ border: "1px solid #ddd", borderRadius: "10px", padding: "25px", width: "220px", textAlign: "center", background: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
             <h2 style={{ margin: 0, color: "#e25822", fontSize: "36px" }}>{stats.vehicles}</h2>
-            <p style={{ margin: "8px 0 0" }}>🚗 Total Vehicles</p>
+            <p style={{ margin: "8px 0 0" }}> Total Vehicles</p>
           </div>
           <div style={{ border: "1px solid #ddd", borderRadius: "10px", padding: "25px", width: "220px", textAlign: "center", background: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
             <h2 style={{ margin: 0, color: "#e25822", fontSize: "36px" }}>{stats.messages}</h2>
-            <p style={{ margin: "8px 0 0" }}>💬 Total Inquiries</p>
+            <p style={{ margin: "8px 0 0" }}> Total Inquiries</p>
           </div>
         </div>
       )}

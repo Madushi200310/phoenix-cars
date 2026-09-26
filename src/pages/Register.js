@@ -7,28 +7,28 @@ import { useNavigate } from "react-router-dom";
 // ─── Slideshow content (matches Login page) ───
 const SLIDES = [
   {
-    icon: "🚗",
+    icon: "",
     title: "Join Phoenix!",
     subtitle: "Create Your Free Account",
     description:
       "Sign up in under a minute and unlock instant access to our full vehicle catalogue.",
   },
   {
-    icon: "💬",
+    icon: "",
     title: "Chat Directly",
     subtitle: "With Our Sales Team",
     description:
       "Ask questions, request quotes, and negotiate in real time — no phone tag.",
   },
   {
-    icon: "📍",
+    icon: "",
     title: "Track Live",
     subtitle: "See Every Vehicle",
     description:
       "Follow a vehicle's location in real time across Sri Lanka before you buy.",
   },
   {
-    icon: "⚡",
+    icon: "",
     title: "Fast & Simple",
     subtitle: "Start Browsing Now",
     description:
@@ -185,7 +185,7 @@ function Register() {
                   ...(role === "user" ? styles.rolePillActive : {}),
                 }}
               >
-                👤 User
+                 User
               </button>
               <button
                 type="button"
@@ -195,7 +195,7 @@ function Register() {
                   ...(role === "admin" ? styles.rolePillActive : {}),
                 }}
               >
-                👑 Admin
+                 Admin
               </button>
             </div>
           </div>

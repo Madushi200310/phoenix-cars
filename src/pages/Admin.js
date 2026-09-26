@@ -116,7 +116,7 @@ function Admin() {
   return (
     <div style={{ padding: "20px", fontFamily: "Arial" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-        <h1 style={{ color: "#e25822" }}>🔥 Phoenix Admin Panel</h1>
+        <h1 style={{ color: "#e25822" }}> Phoenix Admin Panel</h1>
         <div>
           <button onClick={() => navigate("/admin/dashboard")}
             style={{ marginRight: "10px", padding: "8px 16px", background: "#333", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}>
@@ -160,8 +160,8 @@ function Admin() {
           <div key={v.id} style={{ border: "1px solid #ddd", borderRadius: "10px", padding: "15px", width: "220px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
             {v.image && <img src={v.image} alt={v.name} style={{ width: "100%", borderRadius: "8px", marginBottom: "8px" }} />}
             <h3>{v.name}</h3>
-            <p>💰 ${v.price}</p>
-            <p>📅 {v.year}</p>
+            <p> ${v.price}</p>
+            <p> {v.year}</p>
             <button onClick={() => setSelectedVehicle(v)} style={{ marginRight: "8px", padding: "6px 12px", background: "#333", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer" }}>Messages</button>
             <button onClick={() => handleDelete(v.id)} style={{ padding: "6px 12px", background: "#cc0000", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer" }}>Delete</button>
           </div>
@@ -170,7 +170,7 @@ function Admin() {
 
       {selectedVehicle && (
         <div>
-          <h2>💬 Messages for: {selectedVehicle.name}</h2>
+          <h2> Messages for: {selectedVehicle.name}</h2>
           <div style={{ border: "1px solid #ddd", borderRadius: "10px", padding: "15px", height: "250px", overflowY: "auto", background: "#f9f9f9", marginBottom: "10px" }}>
             {messages.length === 0 && <p style={{ color: "#aaa" }}>No messages yet.</p>}
             {messages.map((msg) => (
